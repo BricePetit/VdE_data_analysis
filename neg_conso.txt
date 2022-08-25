@@ -13,7 +13,7 @@ Consommation négative:
     - CDB038 => certaines valuers (e.g. 2022-05-01 03:30:00)
 
     - ECHL01 => du 15/04 au 2022-05-02 12:04:56
-    - ECHL04 => toutes les valeurs
+    - ECHL04 => toutes les valeurs (presque)
     - ECHL06 => 2022-05-02 11:13:28 à la fin
     - ECHL07 => 2022-04-23 23:00:32 au 2022-04-23 23:12:32, 2022-04-30 03:31:36 au 2022-04-30 06:11:52
     - ECHL12 => 2022-04-14 13:40:48 au 2022-05-02 08:57:36
