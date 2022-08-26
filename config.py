@@ -17,25 +17,25 @@ DATASET_FOLDER = 'dataset'
 RESAMPLED_FOLDER = 'resampled_data'
 
 # True if we want to manage the data
-MANAGE_DATA = False
-
-# True if we want to resample the dataset
-RESAMPLE = False
+MANAGE_DATA = True
 
 # True if we want to verify if there are negative consumptions
 VERIFY_CONSUMPTION = False
 
 # True if we want to convert UTC to CET (time)
-CONVERT_UTC_CET = False
+CONVERT_UTC_CET = True
+
+# True if we want to resample the dataset
+RESAMPLE = True
 
 # Set to True if you want to enter in the function to plot
-PLOT = True
+PLOT = False
 
 # True if we want to plot basic information
 BASIC_PLOT = False
 
 # True we want to plot the average over the entire community
-AVERAGE_COMMUNITY = True
+AVERAGE_COMMUNITY = False
 
 # True if we want to find the reaction to the sms
 REACTION = False

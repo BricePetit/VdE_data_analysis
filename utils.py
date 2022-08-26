@@ -70,10 +70,11 @@ Basically, the database encodes TS in UTC. So, we add 2 hours to the ts to obtai
 /!\ We need to check before if the data are in UTC or CET. /!\ 
 /!\ If it is in UTC, there are 2 different values => e.g. 2022-05-02 & 2022-05-03 22:00:00 /!\
 
-:param df:          Dataframe
-:param file_name:   Name of the file
+:param df:              Dataframe
+:param file_name:       Name of the file
+:param community_name:  Name of the community
 """
-def utcToCet(df, file_name):
+def utcToCet(df, file_name, community_name):
     # Convert the time
     time_check = datetime.datetime.strptime(df['ts'].iloc[0], '%Y-%m-%d %H:%M:%S')
     time_check = time_check.strftime('%Y-%m-%d') + " " + "23:00:00"
@@ -84,12 +85,14 @@ def utcToCet(df, file_name):
     # If months are different => not in CET.
     if t1.day != t2.day:
         for i in range(len(df)):
+            # Apply the conversion of the timestamp
             from_zone = tz.gettz('UTC')
             to_zone = tz.gettz("Europe/Brussels")
             utc = datetime.datetime.strptime(df.loc[i, 'ts'], '%Y-%m-%d %H:%M:%S')
             utc = utc.replace(tzinfo=from_zone)
-            df.loc[i, 'ts'] = utc.astimezone(to_zone)
-        df.to_csv(DATASET_FOLDER + '/' + file_name + ".csv", index=False)
+            utc = utc.astimezone(to_zone)
+            df.loc[i, 'ts'] = utc.replace(tzinfo=None)
+        df.to_csv(DATASET_FOLDER + '/'+ community_name + '/' + file_name + ".csv", index=False)
         print("Done!")
     else:
         print("Already correct!")

@@ -15,9 +15,9 @@ def manageData():
     for community in COMMUNITY_NAME:
         print("---------------Managing Data---------------")
         # For all file in the data folder
-        for file in os.listdir(RESAMPLED_FOLDER + '/' + community):
+        for file in os.listdir(DATASET_FOLDER + '/' + community):
             print("---------------"+ file[:6] +"---------------")
-            df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + file)
+            df = pd.read_csv(DATASET_FOLDER + '/' + community + '/' + file)
 
             # Check if there is a negative consumption
             if VERIFY_CONSUMPTION:
@@ -25,7 +25,7 @@ def manageData():
 
             # Check if we need to apply the correction
             if CONVERT_UTC_CET:
-                utcToCet(df, file[:6])
+                utcToCet(df, file[:6], community)
 
             # Run the resample function according to Resample boolean value
             if RESAMPLE:
