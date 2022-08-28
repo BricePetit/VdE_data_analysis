@@ -54,14 +54,14 @@ def resampleDataset(file, df):
             new_df = pd.concat([new_df, tmp_df2], ignore_index=True)
             # If the next 15 minutes are in another month, we will save the current month.
             if current_ts.month != (current_ts + delta).month:
-                new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:4] + '/' + file[:-4] + '_' 
+                new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_' 
                                 + str(current_ts.year) + "-" + str(current_ts.month) 
                                 + '_15min.csv', index=False)
                 new_df = pd.DataFrame(columns=['home_id','day','ts','p_cons','p_prod','p_tot'])
         # Update the timestamp
         current_ts = current_ts + delta
     # Write the sampled dataset
-    new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:4] + '/' + file[:-4] + '_' + str(current_ts.year) + "-" 
+    new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_' + str(current_ts.year) + "-" 
                     + str(current_ts.month) + '_15min.csv', index=False)
 
 
@@ -71,7 +71,7 @@ Basically, the database encodes TS in UTC. So, we add 2 hours to the ts to obtai
 /!\ If it is in UTC, there are 2 different values => e.g. 2022-05-02 & 2022-05-03 22:00:00 /!\
 
 :param df:              Dataframe
-:param file_name:       Name of the file
+:param file_name:       Name of the file & the extension
 :param community_name:  Name of the community
 """
 def utcToCet(df, file_name, community_name):
@@ -92,7 +92,7 @@ def utcToCet(df, file_name, community_name):
             utc = utc.replace(tzinfo=from_zone)
             utc = utc.astimezone(to_zone)
             df.loc[i, 'ts'] = utc.replace(tzinfo=None)
-        df.to_csv(DATASET_FOLDER + '/'+ community_name + '/' + file_name + ".csv", index=False)
+        df.to_csv(DATASET_FOLDER + '/'+ community_name + '/' + file_name, index=False)
         print("Done!")
     else:
         print("Already correct!")

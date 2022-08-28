@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from dateutil import tz
 import matplotlib.dates as dates
@@ -23,7 +24,7 @@ MANAGE_DATA = True
 VERIFY_CONSUMPTION = False
 
 # True if we want to convert UTC to CET (time)
-CONVERT_UTC_CET = True
+CONVERT_UTC_CET = False
 
 # True if we want to resample the dataset
 RESAMPLE = True
@@ -38,7 +39,7 @@ BASIC_PLOT = False
 AVERAGE_COMMUNITY = False
 
 # True if we want to find the reaction to the sms
-REACTION = False
+GLOBAL_REACTION = False
 
 # Number of minutes that is used during the resampled dataset
 # We choose 45 because for each 15 minutes, we have an average.

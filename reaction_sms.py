@@ -10,43 +10,25 @@ Function to find a reaction in the dataframe in a global point of view.
 
 :param df: The dataframe.
 """
-def findGlobalReaction(df):
-    global GLOBAL_MEDIAN, GLOBAL_MEAN, MINUTES
-    global_reacted_msg_median = []
-    global_reacted_msg_mean = []
-    home_id = df['home_id'].iloc[0]
+def findGlobalReaction(df, file_name, path, alerts):
+    for msg in alerts:
+        alert_period = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
+        if int(file_name[7:11]) == alert_period.year and int(file_name[12]) == alert_period.month:
+            months_home = []
+            # We recover all month for the current home
+            for file2 in os.listdir(path):
+                if file_name != file2:
+                    if file_name[:6] == file2[:6]:
+                        months_home.append(file2)
+                    elif int(file_name[4:6]) < int(file2[4:6]):
+                        break
+            min_period = datetime.datetime(day=1, month=int(months_home[0][12]), year=int(months_home[0][7:11]))
+            last_day = calendar.monthrange(int(months_home[-1][7:11]), int(months_home[-1][12]))[1];
+            max_period = datetime.datetime(day=last_day, month=int(months_home[-1][12]), year=int(months_home[-1][7:11]))
 
-    for msg in ALERTS_CDB:
-        # Take the data during the alerted period
-        alerted_period = df.query("ts >= \"" + msg[0] + "\" and ts < \"" + msg[1] + "\"")
-        # Take the first timestamp of the period and create a datetime
-        initial_period = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-        # Take the value before the period
-        before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(minutes=MINUTES)) + "\"")
-        # Take the consumption value before the period
-        p_cons_before_period = before_period["p_cons"].iloc[0]
-        # Compute the median and add it into a list
-        median = alerted_period["p_cons"].median()
-        global_reacted_msg_median.append(1 if p_cons_before_period > median else 0)
-        # Compute the mean and add it into a list
-        mean = alerted_period["p_cons"].mean()
-        global_reacted_msg_mean.append(1 if p_cons_before_period > mean else 0)
-        # Print useful information
-        print(msg)
-        print()
-        print("Consumption before the period:" + str(p_cons_before_period))
-        print("Median consumption during the period: " + str(median))
-        print("Mean consumption during the period: " + str(mean) + "\n")
-        # print("Standard deviation: " + str(alerted_period["p_cons"].std())) #  + "\n"
-        # print(scipy.stats.zscore(alerted_period["p_cons"]))
-        print("All values:")
-        print(alerted_period["p_cons"])
-        print()
-
-    # Add values in a dictionary according to the home_id
-    GLOBAL_MEDIAN[home_id] = global_reacted_msg_median
-    GLOBAL_MEAN[home_id] = global_reacted_msg_mean
-
+            if alert_period.isoweekday() == min_period.isoweekday():
+                pass
+                
 
 """
 TODO: Transform in a global approach

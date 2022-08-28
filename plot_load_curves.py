@@ -27,13 +27,10 @@ def plotAverageCommunity(starting, ending, fmt='15min'):
                 week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
                 # We check if the new dataframe is not empty
                 if new_df.size != 0:
-                    # Create a temp dataframe to add values to the dataframe for the mean
-                    tmp_df = pd.DataFrame({'ts':week['ts'],'p_cons':week['p_cons'],'p_prod':week['p_prod'],
-                                            'p_tot':week['p_tot']})
                     # Add all interesting value to the final dataframe
-                    new_df['p_cons'] = new_df['p_cons'] + tmp_df['p_cons']
-                    new_df['p_prod'] = new_df['p_prod'] + tmp_df['p_prod']
-                    new_df['p_tot'] = new_df['p_tot'] + tmp_df['p_tot']
+                    new_df['p_cons'] = new_df['p_cons'] + week['p_cons']
+                    new_df['p_prod'] = new_df['p_prod'] + week['p_prod']
+                    new_df['p_tot'] = new_df['p_tot'] + week['p_tot']
                 else:
                     # Initialize the dataframe in the case where it is empty
                     new_df = pd.DataFrame({'ts':week['ts'],'p_cons':week['p_cons'],'p_prod':week['p_prod'],

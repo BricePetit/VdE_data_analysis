@@ -1,5 +1,5 @@
 from plot_load_curves import *
-from reaction_sms_CDB import *
+from reaction_sms import *
 from utils import *
 from config import *
 
@@ -12,7 +12,7 @@ Function to manage data.
 """
 def manageData():
     # For all communities
-    for community in COMMUNITY_NAME:
+    for community in ["CDB"]:
         print("---------------Managing Data---------------")
         # For all file in the data folder
         for file in os.listdir(DATASET_FOLDER + '/' + community):
@@ -25,11 +25,24 @@ def manageData():
 
             # Check if we need to apply the correction
             if CONVERT_UTC_CET:
-                utcToCet(df, file[:6], community)
+                utcToCet(df, file, community)
 
             # Run the resample function according to Resample boolean value
-            if RESAMPLE:
+            if RESAMPLE and file in ['CDB030', 'CDB031', 'CDB033', 'CDB034', 'CDB036', 'CDB037', 'CDB038', 'CDB040', 'CDB042', 'CDB043', 'CDB045', 'CDB059', 'CDBA01', 'CDBA02']:
                 resampleDataset(file, df)
+
+
+def computeAlertReaction():
+    for community in COMMUNITY_NAME:
+        print("--------------Computing Alerts--------------")
+        path = RESAMPLED_FOLDER + '/' + community
+        # For all file in the data folder
+        for file in os.listdir(path):
+            print("---------------"+ file[:6] +"---------------")
+            df = pd.read_csv(path + '/' + file)
+            # Find if a house reacted to the message
+            if GLOBAL_REACTION:
+                findGlobalReaction(df, file, path, alerts)
 
 
 """
