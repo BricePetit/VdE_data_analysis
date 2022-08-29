@@ -8,12 +8,18 @@ from config import *
 """
 Function to find a reaction in the dataframe in a global point of view.
 
-:param df: The dataframe.
+:param df:          The dataframe.
+:param file_name:   Complete name of the file
+:param path:        Path to the file.
+:param alerts:      List of alerts.
+:param reaction:    List of reactions.
+:param ranking:     Ranking of each reaction in a list.
 """
-def findGlobalReaction(df, file_name, path, alerts):
-    for msg in alerts:
-        alert_period = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-        if int(file_name[7:11]) == alert_period.year and int(file_name[12]) == alert_period.month:
+def findGlobalReaction(df, file_name, path, alerts, reaction, ranking):
+    for i in range(len(alerts)):
+        starting_alert = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
+        ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
+        if int(file_name[7:11]) == starting_alert.year and int(file_name[12]) == starting_alert.month:
             months_home = []
             # We recover all month for the current home
             for file2 in os.listdir(path):
@@ -22,155 +28,76 @@ def findGlobalReaction(df, file_name, path, alerts):
                         months_home.append(file2)
                     elif int(file_name[4:6]) < int(file2[4:6]):
                         break
-            min_period = datetime.datetime(day=1, month=int(months_home[0][12]), year=int(months_home[0][7:11]))
-            last_day = calendar.monthrange(int(months_home[-1][7:11]), int(months_home[-1][12]))[1];
-            max_period = datetime.datetime(day=last_day, month=int(months_home[-1][12]), year=int(months_home[-1][7:11]))
+            # Compute the mean before and after the period of the alert
+            mean = computeMeanUpToBound(df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert)
+            mean += computeMeanUpToBound(df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert)
+            mean /= 2
+            
+            mean_alert = df.query("ts >= \"" + alerts[i][0] + "\" and ts < \"" + alerts[i][1] + "\"")['p_cons'].mean()
 
-            if alert_period.isoweekday() == min_period.isoweekday():
-                pass
-                
+            # We check if the mean is lower than during the alert
+            if mean_alert < mean:
+                ranking[i] = ranking[i] + 1 if i in ranking else 1
+                reaction[file_name[:6]] = reaction[file_name[:6]].append(i) if file_name[:6] in reaction else [i]
+
 
 """
-TODO: Transform in a global approach
+This function will compute the mean before or after the alert according to the sign
 
-:param df:          Dataframe
-:param alerts:      List of alerts
-:hours_mean:        Dictionaries containing if a participant respected the restriction period.
-:param minutes:     The number of minutes before the alert.
-:param community:   Name of the community (CDB or ECH).
+:param df:              Dataframe
+:param months_home:     List of months for a home_id
+:param sign:            The sign used for the delta. -1 if we need to check 
+                        before the current date, 1 otherwise
+:param alerts:          All alerts
+:param starting_alert:  The beginning of the alert.
+:param ending_alert:    The end of the alert.
 
-:return:            Return hours_mean that is the dictionary that contains the participation of 
-                    consumers.
+:return:                Return the mean.
 """
-def findHourReaction(df, alerts, hours_mean, minutes, community):
-    hour_reacted_msg_mean = []
-    home_id = df['home_id'].iloc[0]
-
-    for msg in alerts:
-        # Take the first timestamp of the period and create a datetime
-        initial_period = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-
-        date = datetime.datetime.strptime(msg[0], '%Y-%m-%d')
-        # Take the value before the period
-        if date < datetime.datetime.strptime('2022-07-01', '%Y-%m-%d'):
-            # Case where we are before July in the Coin du Balai community
-            if community == "CDB" and str(date) in ["2022-04-29", "2022-05-15", "2022-06-11"]:
-                # Find another initial period knowing that they have the msg 
-                # They have always known the information 
-                count = 7
-                tmp_p_cons = 0
-                for _ in range(4):
-                    if date not in ["2022-04-29", "2022-05-15", "2022-06-11"]:
-                        before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(day=count)) + "\"")
-                        tmp_p_cons += before_period["p_cons"].iloc[0]
-                    else:
-                        count += 7
-                        before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(day=count)) + "\"")
-                        tmp_p_cons += before_period["p_cons"].iloc[0]
-                    count += 7
-                # Take the average consumption value before the period. The average is done on each week with the same day
-                p_cons_before_period = round(tmp_p_cons / 4,0)
-            # Case where we are before July in the Echappée community
+def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_alert):
+    finished = False
+    current_period = starting_alert
+    # The time between the beginning of the alert and the end of the alert
+    delta_alert = ending_alert - starting_alert
+    delta = datetime.timedelta(days=7*sign)
+    mean = 0
+    count = 0
+    tmp_df = df
+    # For each file before or after (depending on the sign) the alert.
+    while not finished:
+        # Check if the date is not an alert.
+        if current_period + delta not in alerts:
+            # check if the month is the same
+            if (current_period + delta).month == current_period.month:
+                tmp_mean = tmp_df.query("ts >= \"" + str(current_period+delta) + "\" and ts < \"" 
+                                    + str((current_period+delta) + delta_alert) + "\"")['p_cons'].mean()
+                if tmp_mean > 0:
+                    mean += tmp_mean
+                    count += 1
+                    delta += datetime.timedelta(days=7*sign)
             else:
-                before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(minutes=45)) + "\"")
-                # Take the consumption value before the period
-                p_cons_before_period = before_period["p_cons"].iloc[0]
+                find = False
+                # Search the following month
+                for i in range(len(months_home)):
+                    if months_home[i][12] == (current_period + delta).month:
+                        find = True
+                        file_name = months_home[i]
+                        del months_home[i]
+                # If it is the case, we continue
+                if find:
+                    tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
+                    tmp_mean = tmp_df.query("ts >= \"" + str(current_period+delta) + "\" and ts < \"" 
+                                    + str((current_period+delta) + delta_alert) + "\"")['p_cons'].mean()
+                    if tmp_mean > 0:
+                        mean += tmp_mean
+                        count += 1
+                        delta += datetime.timedelta(days=7*sign)
+                # Otherwise, there is no more file
+                else:
+                    finished = True
         else:
-            # Case where we are in July or later in the Coin du Balai community
-            if community == "CDB":
-                # Need to check the 
-                before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(day=minutes)) + "\"")
-            # Case where we are in July or later in the Echappée community
-            else:
-                # We choose 135 because the experimentation is 120 min before and we did an average, so 
-                # we take 15 min before
-                before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(minutes=135)) + "\"")
-            p_cons_before_period = before_period["p_cons"].iloc[0]
-
-        # Take the last timestamp of the period and create a datetime
-        last_period = datetime.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
-        current_time = initial_period
-        print(msg)
-        print()
-        while current_time < last_period:
-            # Take the df per hour
-            df_per_hour = df.query("ts >= \"" + str(current_time) + "\" and ts < \"" 
-                        + str(current_time + datetime.timedelta(minutes=60)) + "\"")
-            # Compute the mean and add it into a list
-            mean = df_per_hour["p_cons"].mean()
-            hour_reacted_msg_mean.append(1 if p_cons_before_period > mean else 0)
-
-            print(current_time)
-            print()
-            print("Consumption before the period:" + str(p_cons_before_period))
-            print("Mean consumption during the period: " + str(mean) + "\n")
-            # print("Standard deviation: " + str(df_per_hour["p_cons"].std()) + "\n")
-            print("All values:")
-            print(df_per_hour["p_cons"])
-            print()
-
-            current_time += datetime.timedelta(minutes=60)
-
-    hours_mean[home_id] = hour_reacted_msg_mean
-
-    return hours_mean
-
-"""
-Function to find a reaction in the dataframe in hours point of view.
-
-:param df: The dataframe.
-"""
-def findHourReaction(df):
-    global HOURS_MEDIAN, HOURS_MEAN, HOURS_ALERT_PERIOD, MINUTES, ALERTS_CDB
-    hour_reacted_msg_median = []
-    hour_reacted_msg_mean = []
-    home_id = df['home_id'].iloc[0]
-
-    for msg in ALERTS_CDB:
-        # Take the first timestamp of the period and create a datetime
-        initial_period = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-        # Take the value before the period
-        before_period = df.query("ts == \"" + str(initial_period - datetime.timedelta(minutes=MINUTES)) + "\"")
-        # Take the consumption value before the period
-        p_cons_before_period = before_period["p_cons"].iloc[0]
-        # Take the last timestamp of the period and create a datetime
-        last_period = datetime.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
-        current_time = initial_period
-        count = 0
-        print(msg)
-        print()
-        while current_time < last_period:
-            # Take the df per hour
-            df_per_hour = df.query("ts >= \"" + str(current_time) + "\" and ts < \"" 
-                        + str(current_time + datetime.timedelta(minutes=60)) + "\"")
-            # Compute the median and add it into a list
-            median = df_per_hour["p_cons"].median()
-            hour_reacted_msg_median.append(1 if p_cons_before_period > median else 0)
-            # Compute the mean and add it into a list
-            mean = df_per_hour["p_cons"].mean()
-            hour_reacted_msg_mean.append(1 if p_cons_before_period > mean else 0)
-
-            print(current_time)
-            print()
-            print("Consumption before the period:" + str(p_cons_before_period))
-            print("Median consumption during the period: " + str(median))
-            print("Mean consumption during the period: " + str(mean) + "\n")
-            # print("Standard deviation: " + str(df_per_hour["p_cons"].std()) + "\n")
-            print("All values:")
-            print(df_per_hour["p_cons"])
-            print()
-
-            count += 1
-            current_time += datetime.timedelta(minutes=60)
-
-        # Check if the size are identical
-        if count < HOURS_ALERT_PERIOD:
-            for _ in range(HOURS_ALERT_PERIOD-count):
-                hour_reacted_msg_median.append(None)
-                hour_reacted_msg_mean.append(None)
-
-    HOURS_MEDIAN[home_id] = hour_reacted_msg_median
-    HOURS_MEAN[home_id] = hour_reacted_msg_mean
+            delta += datetime.timedelta(days=7*sign)
+    return mean/count
 
 
 """

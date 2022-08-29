@@ -1,24 +1,26 @@
 import calendar
+import copy
 import datetime
 from dateutil import tz
 import matplotlib.dates as dates
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import os
+import pandas as pd
+import random
 
 #------------------------------------#
 #----------GLOBAL VARIABLES----------#
 #------------------------------------#
 
 # Name of the folder where the dataset is located
-DATASET_FOLDER = 'dataset'
+DATASET_FOLDER = '/home/users/b/p/bpetit/VdE/dataset'
 
 # Name of the folder where the resampled dataset is located
-RESAMPLED_FOLDER = 'resampled_data'
+RESAMPLED_FOLDER = '/home/users/b/p/bpetit/VdE/resampled_data'
 
 # True if we want to manage the data
-MANAGE_DATA = True
+MANAGE_DATA = False
 
 # True if we want to verify if there are negative consumptions
 VERIFY_CONSUMPTION = False
@@ -27,7 +29,7 @@ VERIFY_CONSUMPTION = False
 CONVERT_UTC_CET = False
 
 # True if we want to resample the dataset
-RESAMPLE = True
+RESAMPLE = False
 
 # Set to True if you want to enter in the function to plot
 PLOT = False
@@ -38,8 +40,11 @@ BASIC_PLOT = False
 # True we want to plot the average over the entire community
 AVERAGE_COMMUNITY = False
 
+# True if we want to verify reactions
+REACTION = True
+
 # True if we want to find the reaction to the sms
-GLOBAL_REACTION = False
+GLOBAL_REACTION = True
 
 # Number of minutes that is used during the resampled dataset
 # We choose 45 because for each 15 minutes, we have an average.
@@ -89,5 +94,10 @@ for msg in ALERTS_CDB:
 HOURS_MEAN_CDB = {}
 HOURS_MEAN_ECHAP = {}
 
-# Dictionary to know if the consumption has been reported
-REPORTED = {}
+# Dictionary of all houses and the index of the alert
+ALERT_REACTION_CDB = {}
+ALERT_REACTION_ECH = {}
+
+# Dictionary to rank alerts
+RANKING_ALERT_CDB = {}
+RANKING_ALERT_ECH = {}

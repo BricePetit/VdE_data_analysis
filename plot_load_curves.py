@@ -10,19 +10,26 @@ a given community. The community is ECH or CDB.
 
 :param starting:        The starting date.
 :param ending:          The ending date.
+:param house_nb:        Number of house to apply the average.
 :param fmt:             Format used to generate indexes. '15min' or '8S'.
 """
-def plotAverageCommunity(starting, ending, fmt='15min'):
+def plotAverageCommunity(starting, ending, house_nb=5, fmt='15min'):
     # Create a new dataframe to apply the average
     new_df = pd.DataFrame(columns=['ts','p_cons','p_prod','p_tot'])
     # Count the number of community
     count = 0
     # For file in the folder resampled folder
     for community in ["ECH"]:
-        for file in os.listdir(RESAMPLED_FOLDER + '/' + community):
-            if (file[:4]  == "ECHL" and int(file[12]) == 7):
+        if community == "ECH" and house_nb > 19:
+            house_nb = 19
+        elif community == "CDB" and house_nb > 28:
+            house_nb = 28
+        all_files = [f for f in os.listdir(RESAMPLED_FOLDER + '/' + community)]
+        chosen_house = random.sample(range(0, len(all_files)), house_nb)
+        for house in chosen_house:
+            if (house[:4]  == "ECHL" and int(house[12]) == 7):
                 # Read the file and create a dataframe
-                df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + file)
+                df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + house)
                 # Query the period on the dataframe.
                 week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
                 # We check if the new dataframe is not empty
@@ -41,7 +48,8 @@ def plotAverageCommunity(starting, ending, fmt='15min'):
         new_df['p_prod'] = new_df['p_prod'] / count
         new_df['p_tot'] = new_df['p_tot'] / count
         # Plot the results
-        plotBasicPeriod(new_df, "plots/" + community + "/average_community", "average_" + community, starting, ending, fmt)
+        plotBasicPeriod(new_df, "plots/" + community + "/average_community", "average_" + community + "_" 
+                        + str(house_nb), starting, ending, fmt)
 
 """
 Plot a curve according to the starting and ending date.

@@ -28,10 +28,12 @@ def manageData():
                 utcToCet(df, file, community)
 
             # Run the resample function according to Resample boolean value
-            if RESAMPLE and file in ['CDB030', 'CDB031', 'CDB033', 'CDB034', 'CDB036', 'CDB037', 'CDB038', 'CDB040', 'CDB042', 'CDB043', 'CDB045', 'CDB059', 'CDBA01', 'CDBA02']:
+            if RESAMPLE:
                 resampleDataset(file, df)
 
-
+"""
+Function for reactions.
+"""
 def computeAlertReaction():
     for community in COMMUNITY_NAME:
         print("--------------Computing Alerts--------------")
@@ -42,7 +44,10 @@ def computeAlertReaction():
             df = pd.read_csv(path + '/' + file)
             # Find if a house reacted to the message
             if GLOBAL_REACTION:
-                findGlobalReaction(df, file, path, alerts)
+                if community == "CDB":
+                    findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB)
+                elif community == "ECH":
+                    findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH)
 
 
 """
@@ -79,6 +84,9 @@ def main():
     # Manage the data (e.g. resample, etc.)
     if MANAGE_DATA:
         manageData()
+
+    if REACTION:
+        computeAlertReaction()
 
     # Plot 
     if PLOT:
