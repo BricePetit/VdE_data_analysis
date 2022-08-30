@@ -1,3 +1,4 @@
+from turtle import title
 from config import *
 
 #----------------------------------#
@@ -19,7 +20,7 @@ def plotAverageCommunity(starting, ending, house_nb=5, fmt='15min'):
     # Count the number of community
     count = 0
     # For file in the folder resampled folder
-    for community in ["ECH"]:
+    for community in ["CDB"]:
         if community == "ECH" and house_nb > 19:
             house_nb = 19
         elif community == "CDB" and house_nb > 28:
@@ -27,7 +28,7 @@ def plotAverageCommunity(starting, ending, house_nb=5, fmt='15min'):
         all_files = [f for f in os.listdir(RESAMPLED_FOLDER + '/' + community)]
         chosen_house = random.sample(range(0, len(all_files)), house_nb)
         for house in chosen_house:
-            if (house[:4]  == "ECHL" and int(house[12]) == 7):
+            if (house[:3]  == "CDB" and int(house[12]) == 5 and int(house[7:11]) == 2022):
                 # Read the file and create a dataframe
                 df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + house)
                 # Query the period on the dataframe.
@@ -68,31 +69,63 @@ def plotBasicPeriod(df, path, home_id, starting, ending, fmt='15min'):
     # on the bottom
     idx = pd.date_range(starting, ending, freq=fmt)
     # Parameter to obtain a large figure
-    plt.rcParams["figure.figsize"] = [50, 7]
+    plt.rcParams["figure.figsize"] = [50, 9]
     # Create the plot
-    fig, ax = plt.subplots()
+    fig, axs = plt.subplots(nrows=2, ncols=1)
+
+    ax = axs[0]
+    # Plot the consumption
+    # plot(x='ts', ax=axes[i,j], title=f'Week {week_nb}', ylim=0)
+    ax.plot(idx, week['p_cons'])
     # Create a second axis
     ax2 = ax.twiny()
-    # Plot the consumption
-    ax.plot(idx, week['p_cons'])
     # Remove useless information on the second axis
     ax2.set(xticklabels=[])
     # Set a limit for the second axis based on the first axis
     ax2.set_xlim(ax.get_xlim())
+    # Set the title of this graph
+    ax.set_title('p_cons')
+    # Set the title of the y-axis
+    ax.set_ylabel('Watt')
     # Set the position of the 2e axis
-    ax2.xaxis.set_label_position('top') 
+    ax2.xaxis.set_label_position('top')
     # Parameter to plot hours on the 2e axis
     ax2.xaxis.set_minor_locator(dates.HourLocator())
     ax2.xaxis.set_minor_formatter(dates.DateFormatter('%H'))
     ax2.xaxis.grid(True, which="minor")
     # Parameter to plot the date on the first axis
+    ax.xaxis.set_major_formatter(dates.DateFormatter(''))
+
+    ax = axs[1]
+    # Plot the consumption
+    # plot(x='ts', ax=axes[i,j], title=f'Week {week_nb}', ylim=0)
+    ax.plot(idx, week['p_tot'])
+    # Create a second axis
+    ax2 = ax.twiny()
+    # Remove useless information on the second axis
+    ax2.set(xticklabels=[])
+    # Set a limit for the second axis based on the first axis
+    ax2.set_xlim(ax.get_xlim())
+    # Set the title of this graph
+    ax.set_title('p_tot')
+    # Set the title of the y-axis
+    ax.set_ylabel('Watt')
+    # Set the position of the 2e axis
+    ax2.xaxis.set_label_position('top')
+    
+    # Parameter to plot hours on the 2e axis
+    ax2.xaxis.set_minor_locator(dates.HourLocator())
+    ax2.xaxis.set_minor_formatter(dates.DateFormatter(''))
+    ax2.xaxis.grid(True, which="minor")
+    # Parameter to plot the date on the first axis
     ax.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b'))
+
     # Plot a title
-    plt.title(f'Home: {home_id}\nPeriod: {starting} - {ending}')
+    plt.suptitle(f'Home: {home_id}\nPeriod: {starting} - {ending}\n')
     # Check if the path exists. If it is not the case, we create it
     if not os.path.exists(path):
         os.makedirs(path)
-    fig.savefig(f'{path}/{home_id}_period_{starting[:-9]}_{ending[:-9]}_{fmt}.png')
+    fig.savefig(f'{path}/{home_id}_p_cons-p_tot_period_{starting[:-9]}_{ending[:-9]}_{fmt}.png')
     plt.close()
 
 

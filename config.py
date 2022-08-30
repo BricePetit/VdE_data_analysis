@@ -14,10 +14,10 @@ import random
 #------------------------------------#
 
 # Name of the folder where the dataset is located
-DATASET_FOLDER = '/home/users/b/p/bpetit/VdE/dataset'
+DATASET_FOLDER = 'dataset'
 
 # Name of the folder where the resampled dataset is located
-RESAMPLED_FOLDER = '/home/users/b/p/bpetit/VdE/resampled_data'
+RESAMPLED_FOLDER = 'resampled_data'
 
 # True if we want to manage the data
 MANAGE_DATA = False

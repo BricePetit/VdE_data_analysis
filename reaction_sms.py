@@ -97,6 +97,7 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
                     finished = True
         else:
             delta += datetime.timedelta(days=7*sign)
+    count = 1 if count == 0 else count
     return mean/count
 
 

@@ -46,8 +46,10 @@ def computeAlertReaction():
             if GLOBAL_REACTION:
                 if community == "CDB":
                     findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB)
+                    print(RANKING_ALERT_CDB)
                 elif community == "ECH":
                     findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH)
+                    print(RANKING_ALERT_ECH)
 
 
 """
@@ -63,13 +65,13 @@ def allPlots():
             df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + file)
             # Basic plot (15min or 8S (for 8sec))
             if BASIC_PLOT:
-                if (file[:4]  == "ECHL" and int(file[12]) == 7):
+                if (file[:3]  == "CDB" and int(file[12]) == 5 and int(file[12]) and int(file[7:11]) == 2022):
                     home_id = df['home_id'].iloc[0]
                     path = f"plots/{community}/{home_id}"
-                    plotBasicPeriod(df, path, home_id, "2022-07-04 00:00:00", "2022-07-10 23:59:52")
+                    plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52")
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
-        plotAverageCommunity("2022-07-04 00:00:00", "2022-07-10 23:59:52")
+        plotAverageCommunity("2022-05-02 00:00:00", "2022-05-08 23:59:52")
 
 
 """
