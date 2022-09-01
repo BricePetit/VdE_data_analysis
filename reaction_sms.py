@@ -14,8 +14,10 @@ Function to find a reaction in the dataframe in a global point of view.
 :param alerts:      List of alerts.
 :param reaction:    List of reactions.
 :param ranking:     Ranking of each reaction in a list.
+:param matrix:      The matrix containing values about consumption.
+:param index:       Index of the home id.
 """
-def findGlobalReaction(df, file_name, path, alerts, reaction, ranking):
+def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, index):
     for i in range(len(alerts)):
         starting_alert = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
         ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
@@ -42,6 +44,7 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking):
                     reaction[file_name[:6]].append(i)
                 else:
                     reaction[file_name[:6]] = [i]
+            matrix[index][i] = (mean_alert - mean) / mean if mean != 0 else 0
 
 
 """
