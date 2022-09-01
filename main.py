@@ -81,7 +81,7 @@ def allPlots():
                     path = f"plots/{community}/{home_id}"
                     plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52", fmt)
                 else:
-                    if (file[:3]  == "CDB" and int(file[12]) == 5 and int(file[12]) and int(file[7:11]) == 2022):
+                    if int(file[12]) == 5 and int(file[7:11]) == 2022:
                         home_id = df['home_id'].iloc[0]
                         path = f"plots/{community}/{home_id}"
                         plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52", fmt)

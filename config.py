@@ -35,13 +35,13 @@ RESAMPLE = False
 PLOT = True
 
 # Set to true if you want to use the format 8 sec to plot
-SEC8 = True
+SEC8 = False
 
 # True if we want to plot basic information
 BASIC_PLOT = False
 
 # True we want to plot the average over the entire community
-AVERAGE_COMMUNITY = True
+AVERAGE_COMMUNITY = False
 
 # True if we want to verify reactions
 REACTION = False
