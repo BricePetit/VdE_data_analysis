@@ -44,6 +44,7 @@ CDBA01
 CDBA02
 
 ECHL01
+ECHL2A
 ECHL04
 ECHL05
 ECHL06
@@ -58,8 +59,7 @@ ECHL15
 ECHL16
 ECHL17
 
-ECHA01
-ECHASC
-ECHBUA
-ECHCOM
-ECHL2A
+ECHA01 => groupe de tous les flukso (agrégé)
+ECHASC => ascenceur
+ECHBUA => buandrie
+ECHCOM => communs

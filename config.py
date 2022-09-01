@@ -32,24 +32,22 @@ CONVERT_UTC_CET = False
 RESAMPLE = False
 
 # Set to True if you want to enter in the function to plot
-PLOT = False
+PLOT = True
+
+# Set to true if you want to use the format 8 sec to plot
+SEC8 = True
 
 # True if we want to plot basic information
 BASIC_PLOT = False
 
 # True we want to plot the average over the entire community
-AVERAGE_COMMUNITY = False
+AVERAGE_COMMUNITY = True
 
 # True if we want to verify reactions
-REACTION = True
+REACTION = False
 
 # True if we want to find the reaction to the sms
-GLOBAL_REACTION = True
-
-# Number of minutes that is used during the resampled dataset
-# We choose 45 because for each 15 minutes, we have an average.
-# (e.g. 00min->14min, 15min->29min, 30min->44min, 45min-> 59min) 
-MINUTES = 45
+GLOBAL_REACTION = False
 
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]

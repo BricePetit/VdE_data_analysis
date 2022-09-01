@@ -38,7 +38,10 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking):
             # We check if the mean is lower than during the alert
             if mean_alert < mean:
                 ranking[i] = ranking[i] + 1 if i in ranking else 1
-                reaction[file_name[:6]] = reaction[file_name[:6]].append(i) if file_name[:6] in reaction else [i]
+                if file_name[:6] in reaction:
+                    reaction[file_name[:6]].append(i)
+                else:
+                    reaction[file_name[:6]] = [i]
 
 
 """
@@ -74,7 +77,7 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
                 if tmp_mean > 0:
                     mean += tmp_mean
                     count += 1
-                    delta += datetime.timedelta(days=7*sign)
+                delta += datetime.timedelta(days=7*sign)
             else:
                 find = False
                 # Search the following month

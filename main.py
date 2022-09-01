@@ -46,32 +46,49 @@ def computeAlertReaction():
             if GLOBAL_REACTION:
                 if community == "CDB":
                     findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB)
-                    print(RANKING_ALERT_CDB)
                 elif community == "ECH":
                     findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH)
-                    print(RANKING_ALERT_ECH)
+    
+    print()
+    print("----------CDB ALERTS RANKING----------")
+    for key in RANKING_ALERT_CDB:
+        print("The alert", key, f"{ALERTS_CDB[key]}", "obtained", RANKING_ALERT_CDB[key], "reactions.")
+    print()
+    print("----------CDB ALERTS RANKING----------")
+    for key in ALERT_REACTION_CDB:
+        print(f"The home id {key} reacted to the following alerts {ALERT_REACTION_CDB[key]}.")
+        print(f"The home id {key} reacted to {len(ALERT_REACTION_CDB[key])/len(ALERTS_CDB)*100}% of the alerts.")
 
 
 """
 Function to plot.
 """
 def allPlots():
+    # Choose the format
+    fmt = '8S' if SEC8 else '15min'
+    current_folder = DATASET_FOLDER if SEC8 else RESAMPLED_FOLDER
     # For all communities
-    for community in COMMUNITY_NAME:
-        print("--------------Plotting--------------")
-        # For all file in the data folder
-        for file in os.listdir(RESAMPLED_FOLDER + '/' + community):
-            print("---------------"+ file[:6] +"---------------")
-            df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + file)
-            # Basic plot (15min or 8S (for 8sec))
-            if BASIC_PLOT:
-                if (file[:3]  == "CDB" and int(file[12]) == 5 and int(file[12]) and int(file[7:11]) == 2022):
+    if BASIC_PLOT:
+        for community in COMMUNITY_NAME:
+            print("--------------Plotting--------------")
+            # For all file in the data folder
+            for file in os.listdir(current_folder + '/' + community):
+                print("---------------"+ file[:6] +"---------------")
+                df = pd.read_csv(current_folder + '/' + community + '/' + file)
+                # Basic plot (15min or 8S (for 8sec))
+                if SEC8:
                     home_id = df['home_id'].iloc[0]
                     path = f"plots/{community}/{home_id}"
-                    plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52")
+                    plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52", fmt)
+                else:
+                    if (file[:3]  == "CDB" and int(file[12]) == 5 and int(file[12]) and int(file[7:11]) == 2022):
+                        home_id = df['home_id'].iloc[0]
+                        path = f"plots/{community}/{home_id}"
+                        plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52", fmt)
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
-        plotAverageCommunity("2022-05-02 00:00:00", "2022-05-08 23:59:52")
+        print("--------------Plotting average--------------")
+        plotAverageCommunity("2022-05-02 00:00:00", "2022-05-08 23:59:52", current_folder, 5, fmt)
 
 
 """
@@ -87,19 +104,13 @@ def main():
     if MANAGE_DATA:
         manageData()
 
+    # Compute and show the information about the alert
     if REACTION:
         computeAlertReaction()
 
     # Plot 
     if PLOT:
         allPlots()
-
-    # df = pd.read_csv(RESAMPLED_FOLDER + "/CDB001_2022-05-01--2022-05-31_15min.csv")
-    # df = pd.read_csv(DATASET_FOLDER + "/ECHL01.csv")
-    # plotBasicPeriod(df, "2022-05-02 00:00:00", "2022-05-08 23:59:52", "15min")
-
-    # Compute the percentage of people that reacted to the message
-    # computeStats()
 
 
 if __name__ == "__main__":
