@@ -2,6 +2,7 @@ import calendar
 import copy
 import datetime
 from dateutil import tz
+import matplotlib
 import matplotlib.dates as dates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,10 +45,10 @@ BASIC_PLOT = False
 AVERAGE_COMMUNITY = False
 
 # True if we want to verify reactions
-REACTION = True
+REACTION = False
 
 # True if we want to find the reaction to the sms
-GLOBAL_REACTION = True
+GLOBAL_REACTION = False
 
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]
@@ -100,5 +101,8 @@ ALERT_REACTION_ECH = {}
 RANKING_ALERT_CDB = {}
 RANKING_ALERT_ECH = {}
 
-MATRIX_ALERTS_CDB = np.zeros((len(os.listdir(DATASET_FOLDER + '/CDB')),len(ALERTS_CDB)))
-MATRIX_ALERTS_ECH = np.zeros((len(os.listdir(DATASET_FOLDER + '/ECH')),len(ALERTS_ECH)))
+# MATRIX_ALERTS_CDB = np.zeros((len(os.listdir(DATASET_FOLDER + '/CDB')),len(ALERTS_CDB)))
+# MATRIX_ALERTS_ECH = np.zeros((len(os.listdir(DATASET_FOLDER + '/ECH')),len(ALERTS_ECH)))
+
+MATRIX_ALERTS_CDB = np.zeros((len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']),len(ALERTS_CDB)))
+MATRIX_ALERTS_ECH = np.zeros((len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),len(ALERTS_ECH)))

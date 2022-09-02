@@ -15,21 +15,29 @@ a given community. The community is ECH or CDB.
 :param fmt:             Format used to generate indexes. '15min' or '8S'.
 """
 def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
-    house_name = ""
-    # Create a new dataframe to apply the average
-    new_df = pd.DataFrame(columns=['ts','p_cons','p_prod','p_tot'])
-    # Count the number of community
-    count = 0
     # For file in the folder resampled folder
-    for community in ["CDB"]:
+    for community in COMMUNITY_NAME:
+        # Create a new dataframe to apply the average
+        new_df = pd.DataFrame(columns=['ts','p_cons','p_prod','p_tot'])
+        # Name of all houses that are taken into consideration
+        house_name = ""
+        # Count the number of house in the community
+        count = 0
         if community == "ECH" and house_nb > 19:
             house_nb = 19
         elif community == "CDB" and house_nb > 28:
             house_nb = 28
+
+        if community == 'ECH':
+            all_files = ['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']
+            sep = '_'
+        else:
+            all_files = ['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']
+            sep = '-'
         # All files in the dataset
         # all_files = [f for f in os.listdir(DATASET_FOLDER + '/' + community)]
         # Temporary files that we want to use
-        all_files = ['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043', 'CDBA02']
+        
         chosen_house = random.sample(range(0, len(all_files)), house_nb)
         current_path = current_folder + '/' + community + '/'
         print(all_files)
@@ -40,7 +48,7 @@ def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
                 df = pd.read_csv(current_path + all_files[house] + '.csv')
             else:
                 # Read the file and create a dataframe
-                df = pd.read_csv(current_path + '/' + all_files[house][:6] + '_' + starting[:4] + '-' + starting[6] + '_' + fmt + '.csv')
+                df = pd.read_csv(current_path + all_files[house][:6] + '_' + starting[:4] + sep + starting[6] + '_' + fmt + '.csv')
             # Query the period on the dataframe.
             week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
             # We check if the new dataframe is not empty

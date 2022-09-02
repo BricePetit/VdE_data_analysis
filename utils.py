@@ -96,3 +96,17 @@ def utcToCet(df, file_name, community_name):
         print("Done!")
     else:
         print("Already correct!")
+
+"""
+Export the dataframe in a excel file.
+
+:param matrix:      Matrix containing the results of alerts.
+:param home_ids:    The id of each home.
+:param alerts:      Period of alerts.
+:param path:        The path to register the excel file.
+"""
+def exportToXLSX(matrix, home_ids, alerts, file_name):
+    alerts = ['A'+ str(i+1) for i in range(len(alerts))]
+    df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts)
+    print(df)
+    df.to_excel(excel_writer = file_name)

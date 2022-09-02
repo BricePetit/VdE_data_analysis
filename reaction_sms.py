@@ -44,7 +44,7 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, i
                     reaction[file_name[:6]].append(i)
                 else:
                     reaction[file_name[:6]] = [i]
-            matrix[index][i] = (mean_alert - mean) / mean if mean != 0 else 0
+            matrix[index][i] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
 
 
 """
