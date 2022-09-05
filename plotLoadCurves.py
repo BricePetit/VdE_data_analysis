@@ -1,3 +1,8 @@
+__title__ = "plotLoadCurves"
+__version__ = "1.0.0"
+__author__ = "Brice Petit"
+__license__ = "MIT"
+
 from config import *
 
 #----------------------------------#
@@ -24,9 +29,9 @@ def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
         # Count the number of house in the community
         count = 0
         if community == "ECH" and house_nb > 19:
-            house_nb = 19
+            house_nb = len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16'])
         elif community == "CDB" and house_nb > 28:
-            house_nb = 28
+            house_nb = len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043'])
 
         if community == 'ECH':
             all_files = ['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']

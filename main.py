@@ -1,5 +1,11 @@
-from plot_load_curves import *
-from reaction_sms import *
+__title__ = "main"
+__version__ = "1.0.0"
+__author__ = "Brice Petit"
+__license__ = "MIT"
+
+
+from plotLoadCurves import *
+from smsReaction import *
 from utils import *
 from config import *
 
@@ -206,16 +212,17 @@ def allPlots():
                 if SEC8:
                     home_id = df['home_id'].iloc[0]
                     path = f"plots/{community}/{home_id}"
-                    plotBasicPeriod(df, path, home_id, "2022-05-16 00:00:00", "2022-05-29 23:59:52", fmt)
+                    plotBasicPeriod(df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt)
                 else:
                     if int(file[12]) == 5 and int(file[7:11]) == 2022:
                         home_id = df['home_id'].iloc[0]
                         path = f"plots/{community}/{home_id}"
-                        plotBasicPeriod(df, path, home_id, "2022-05-23 00:00:00", "2022-05-29 23:59:52", fmt)
+                        plotBasicPeriod(df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt)
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
-        plotAverageCommunity("2022-05-02 00:00:00", "2022-05-08 23:59:52", current_folder, 5, fmt)
+        # plotAverageCommunity("2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 5, fmt)
+        # plotAverageCommunity("2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 11, fmt)
 
 
 """
@@ -224,7 +231,7 @@ Main function
 def main():
  # Dictionaries containing if a participant respected the restriction period
     hours_mean_cdb = {}
-    hours_mean_echap = {}
+    hours_mean_ech = {}
     count = 0
     
     # Manage the data (e.g. resample, etc.)

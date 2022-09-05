@@ -1,3 +1,9 @@
+__title__ = "smsReaction"
+__version__ = "1.0.0"
+__author__ = "Brice Petit"
+__license__ = "MIT"
+
+
 from config import *
 
 #--------------------------------------#
@@ -28,8 +34,6 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, i
                 if file_name != file2:
                     if file_name[:6] == file2[:6]:
                         months_home.append(file2)
-                    elif int(file_name[4:6]) < int(file2[4:6]):
-                        break
             # Compute the mean before and after the period of the alert
             mean = computeMeanUpToBound(df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert)
             mean += computeMeanUpToBound(df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert)
@@ -44,7 +48,12 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, i
                     reaction[file_name[:6]].append(i)
                 else:
                     reaction[file_name[:6]] = [i]
+            # print("home index", index)
+            # print(alerts[i])
+            # print("mean during the alert", mean_alert)
+            # print("mean outside the alert", mean)
             matrix[index][i] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
+            # print(matrix)
 
 
 """
@@ -63,48 +72,60 @@ This function will compute the mean before or after the alert according to the s
 def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_alert):
     finished = False
     current_period = starting_alert
+    print("starting", starting_alert)
     # The time between the beginning of the alert and the end of the alert
     delta_alert = ending_alert - starting_alert
     delta = datetime.timedelta(days=7*sign)
     mean = 0
     count = 0
     tmp_df = df
+    # print(months_home)
     # For each file before or after (depending on the sign) the alert.
     while not finished:
         # Check if the date is not an alert.
-        if current_period + delta not in alerts:
+        is_alert = False
+        for i in range(len(alerts)):
+             if str(current_period) in alerts[i]:
+                is_alert = True
+                break
+        if not is_alert:
             # check if the month is the same
-            if (current_period + delta).month == current_period.month:
-                tmp_mean = tmp_df.query("ts >= \"" + str(current_period+delta) + "\" and ts < \"" 
-                                    + str((current_period+delta) + delta_alert) + "\"")['p_cons'].mean()
+            if current_period.month == (current_period-delta).month:
+                tmp_mean = tmp_df.query("ts >= \"" + str(current_period) + "\" and ts < \"" 
+                                    + str(current_period + delta_alert) + "\"")['p_cons'].mean()
                 if tmp_mean > 0:
                     mean += tmp_mean
                     count += 1
-                delta += datetime.timedelta(days=7*sign)
             else:
                 find = False
                 # Search the following month
+                # print(months_home)
                 for i in range(len(months_home)):
-                    if months_home[i][12] == (current_period + delta).month:
-                        find = True
-                        file_name = months_home[i]
-                        del months_home[i]
+                    # Check if years are equal
+                    if int(months_home[i][7:11]) == int(current_period.year):
+                        # Check if months are equals, case where the month is one or two digit(s)
+                        if int(months_home[i][12]) == int(current_period.month) or months_home[i][12:14] == str(current_period.month):
+                            find = True
+                            file_name = months_home[i]
+                            del months_home[i]
+                            break
                 # If it is the case, we continue
                 if find:
                     tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
-                    tmp_mean = tmp_df.query("ts >= \"" + str(current_period+delta) + "\" and ts < \"" 
-                                    + str((current_period+delta) + delta_alert) + "\"")['p_cons'].mean()
+                    tmp_mean = tmp_df.query("ts >= \"" + str(current_period) + "\" and ts < \"" 
+                                    + str(current_period + delta_alert) + "\"")['p_cons'].mean()
                     if tmp_mean > 0:
                         mean += tmp_mean
                         count += 1
-                        delta += datetime.timedelta(days=7*sign)
                 # Otherwise, there is no more file
                 else:
                     finished = True
+        # should be >= now
+        if current_period + delta >= datetime.datetime.strptime("2022-08-12 15:45:00", '%Y-%m-%d %H:%M:%S'):
+            finished = True
         else:
-            delta += datetime.timedelta(days=7*sign)
-    count = 1 if count == 0 else count
-    return mean/count
+            current_period += delta
+    return mean/(1 if count == 0 else count)
 
 
 """
