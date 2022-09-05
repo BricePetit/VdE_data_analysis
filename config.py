@@ -32,6 +32,9 @@ CONVERT_UTC_CET = False
 # True if we want to resample the dataset
 RESAMPLE = False
 
+# True if you want to check the inconsistencies
+INCONSISTENCY = True
+
 # Set to True if you want to enter in the function to plot
 PLOT = False
 

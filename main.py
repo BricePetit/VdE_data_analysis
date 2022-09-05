@@ -37,6 +37,7 @@ def manageData():
             if RESAMPLE:
                 resampleDataset(file, df)
 
+
 """
 Function for reactions.
 """
@@ -229,14 +230,13 @@ def allPlots():
 Main function
 """
 def main():
- # Dictionaries containing if a participant respected the restriction period
-    hours_mean_cdb = {}
-    hours_mean_ech = {}
-    count = 0
-    
     # Manage the data (e.g. resample, etc.)
     if MANAGE_DATA:
         manageData()
+
+    # Check the inconsistency in data
+    if INCONSISTENCY:
+        checkMistake()
 
     # Compute and show the information about the alert
     if REACTION:

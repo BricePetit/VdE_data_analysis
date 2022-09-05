@@ -21,6 +21,57 @@ def checkNegativeConsumption(df, home_id):
 
 
 """
+Function to check inconsistencies. There are 5 cases:
+    - Case 1: Missing data during a period. (p_cons == 0)
+    - Case 2: p_cons == p_tot && p_prod == 0 && p_cons neg
+    - Case 3: p_cons neg (so inverted)
+    - Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000 ||
+                                        p_cons >= 100000 && p_prod <= -100000)
+    - Case 5: p_cons == -p_prod => p_tot == 0 (p_cons >= 0 && p_prod <= 0)
+"""
+def checkMistake():
+    error_msg = "#----------Kind of problems----------#\n"
+    error_msg += "#Case 1: Missing data during a period. (p_cons == 0)\n"
+    error_msg += "#Case 2: p_cons == p_tot && p_prod == 0 && p_cons neg\n"
+    error_msg += "#Case 3: p_cons neg (so inverted)\n"
+    error_msg += "#Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000 || p_cons >= 100000 && p_prod <= -100000)\n"
+    error_msg += "#Case 5: p_cons == -p_prod => p_tot == 0 (p_cons >= 0 && p_prod <= 0)\n"
+    for community in COMMUNITY_NAME:
+        print("---------------Checking Inconsistencies---------------")
+        # For all file in the data folder
+        for file in os.listdir(RESAMPLED_FOLDER + '/' + community):
+            print("#----------" + file + "----------#")
+            error_msg += "#----------" + file + "----------#\n"
+            df = pd.read_csv(RESAMPLED_FOLDER + '/' + community + '/' + file)
+            for i in range(len(df.index)):
+                # Case 1
+                if df['p_cons'].iloc[i] == 0:
+                    error_msg += "Case 1: " + df['ts'].iloc[i] + "\n"
+                # Case 2, 3, 4
+                elif df['p_cons'].iloc[i] < 0:
+                    # Case 2
+                    if df['p_cons'].iloc[i] == df['p_tot'].iloc[i] and df['p_prod'].iloc[i] == 0:
+                        error_msg += "Case 2: " + df['ts'].iloc[i] + "\n"
+                    # Case 4
+                    elif df['p_cons'].iloc[i] <= -100000 and df['p_prod'].iloc[i] >= -100000:
+                        error_msg += "Case 4: " + df['ts'].iloc[i] + "\n"
+                    # Case 3
+                    else:
+                        error_msg += "Case 3: " + df['ts'].iloc[i] + "\n"
+                # Case 4
+                elif df['p_cons'].iloc[i] >= -100000 and df['p_prod'].iloc[i] <= -100000:
+                    error_msg += "Case 4: " + df['ts'].iloc[i] + "\n"
+                # Case 5
+                elif df['p_cons'].iloc[i] == (df['p_prod'].iloc[i] * -1) and df['p_tot'].iloc[i] == 0:
+                    if df['p_cons'].iloc[i] > 0 and df['p_prod'].iloc[i] < 0:
+                        error_msg += "Case 5: " + df['ts'].iloc[i] + "\n"
+    # Write the message
+    f = open("all_problems.txt", 'w')
+    f.write(error_msg)
+    f.close()
+
+
+"""
 Function to resample the dataset. In order to apply that, we will apply an average of values 
 according to the number of minutes. When it's done, we write the dataframe in a file according to 
 the month.
