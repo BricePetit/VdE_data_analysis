@@ -1,0 +1,116 @@
+import calendar
+import copy
+import datetime
+from dateutil import tz
+import matplotlib
+import matplotlib.dates as dates
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pandas as pd
+import random
+
+#------------------------------------#
+#----------GLOBAL VARIABLES----------#
+#------------------------------------#
+
+# Name of the folder where the dataset is located
+DATASET_FOLDER = 'dataset'
+
+# Name of the folder where the resampled dataset is located
+RESAMPLED_FOLDER = 'resampled_data'
+
+# True if we want to manage the data
+MANAGE_DATA = False
+
+# True if we want to verify if there are negative consumptions
+VERIFY_CONSUMPTION = False
+
+# True if we want to convert UTC to CET (time)
+CONVERT_UTC_CET = False
+
+# True if we want to resample the dataset
+RESAMPLE = False
+
+# True if you want to check the inconsistencies
+INCONSISTENCY = False
+
+# Set to True if you want to enter in the function to plot
+PLOT = True
+
+# Set to true if you want to use the format 8 sec to plot
+SEC8 = False
+
+# True if we want to plot basic information
+BASIC_PLOT = False
+
+# True we want to plot the average over the entire community
+AVERAGE_COMMUNITY = True
+
+# True if we want to verify reactions
+REACTION = False
+
+# True if we want to find the reaction to the sms
+GLOBAL_REACTION = True
+
+# Name of communities
+COMMUNITY_NAME = ["CDB", "ECH"]
+
+# List of period where the consumer need to reduce the consumption for CDB
+ALERTS_CDB = [["2022-04-28 19:00:00", "2022-04-28 21:00:00"], 
+              ["2022-05-04 14:00:00", "2022-05-04 16:00:00"],
+              ["2022-05-15 17:00:00", "2022-05-15 19:00:00"], 
+              ["2022-06-03 18:00:00", "2022-06-03 20:00:00"], 
+              ["2022-06-11 11:00:00", "2022-06-11 13:00:00"], 
+              ["2022-06-23 15:00:00", "2022-06-23 17:00:00"], 
+              ["2022-07-12 18:00:00", "2022-07-12 21:00:00"], 
+              ["2022-07-20 18:00:00", "2022-07-20 21:00:00"], 
+              ["2022-08-02 18:00:00", "2022-08-02 21:00:00"]]
+            #   ["2022-08-19 18:00:00", "2022-08-19 21:00:00"]]
+
+# List of period where the consumer need to reduce the consumption for échappée
+ALERTS_ECH = [["2022-05-05 18:00:00", "2022-05-05 21:00:00"],
+              ["2022-05-21 11:00:00", "2022-05-21 14:00:00"], 
+              ["2022-06-05 10:00:00", "2022-06-05 13:00:00"], 
+              ["2022-06-21 17:00:00", "2022-06-21 20:00:00"], 
+              ["2022-07-12 16:00:00", "2022-07-12 22:00:00"], 
+              ["2022-07-18 14:00:00", "2022-07-18 20:00:00"], 
+              ["2022-08-05 15:00:00", "2022-08-05 21:00:00"]]
+            #   ["2022-08-21 15:00:00", "2022-08-21 21:00:00"]]
+
+# Dictionaries containing if a participant respected the restriction period from a global 
+# point of view
+GLOBAL_MEAN = {}
+GLOBAL_MEDIAN = {}
+
+# Compute the number of hours in the alert period
+HOURS_ALERT_PERIOD = 0
+for msg in ALERTS_CDB:
+    lower_bound = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
+    upper_bound = datetime.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
+    if HOURS_ALERT_PERIOD < int(((upper_bound - lower_bound).total_seconds())/3600):
+        HOURS_ALERT_PERIOD = int(((upper_bound - lower_bound).total_seconds())/3600)
+
+# Dictionaries containing if a participant respected the restriction period from hours 
+# point of view
+HOURS_MEAN_CDB = {}
+HOURS_MEAN_ECHAP = {}
+
+# Dictionary of all houses and the index of the alert
+ALERT_REACTION_CDB = {}
+ALERT_REACTION_ECH = {}
+
+# Dictionary to rank alerts
+RANKING_ALERT_CDB = {}
+RANKING_ALERT_ECH = {}
+
+# Matrix containing 
+# MATRIX_ALERTS_CDB = np.zeros((len(os.listdir(DATASET_FOLDER + '/CDB')),len(ALERTS_CDB)))
+# MATRIX_ALERTS_ECH = np.zeros((len(os.listdir(DATASET_FOLDER + '/ECH')),len(ALERTS_ECH)))
+
+MATRIX_ALERTS_CDB = np.zeros((len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']),len(ALERTS_CDB)))
+MATRIX_ALERTS_ECH = np.zeros((len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),len(ALERTS_ECH)))
+
+# List of all consumption during alerts - same period outside alerts
+SUM_ALERTS_CDB = np.zeros(len(ALERTS_CDB))
+SUM_ALERTS_ECH = np.zeros(len(ALERTS_ECH))
