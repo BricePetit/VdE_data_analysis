@@ -93,7 +93,7 @@ def plotBasicPeriod(df, path, home_id, starting, ending, fmt='15min'):
     # on the bottom
     idx = pd.DatetimeIndex(week['ts'])
     # Parameter to obtain a large figure
-    plt.rcParams["figure.figsize"] = [50, 9]
+    plt.rcParams["figure.figsize"] = [9, 9]
     # Create the plot
     fig, axs = plt.subplots(nrows=2, ncols=1)
     for i in range(2):

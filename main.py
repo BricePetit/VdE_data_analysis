@@ -57,12 +57,12 @@ def computeAlertReaction():
                     if file[:6] not in previous_file:
                         previous_file.append(file[:6])
                         i += 1
-                    findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB, MATRIX_ALERTS_CDB, i)
+                    findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i)
                 elif community == "ECH" and file[:6] in ['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']:
                     if file[:6] not in previous_file:
                         previous_file.append(file[:6])
                         i += 1
-                    findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH, MATRIX_ALERTS_ECH, i)
+                    findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i)
                 
     
     print()
@@ -82,8 +82,8 @@ def computeAlertReaction():
     # ech_home_id = [f[:6] for f in os.listdir(DATASET_FOLDER + '/ECH')]
 
     # Export MATRIX_ALERTS_CDB or MATRIX_ALERTS_ECH in excel files
-    exportToXLSX(MATRIX_ALERTS_CDB, cdb_home_id, ALERTS_CDB, "plots/alerts_cdb.xlsx")
-    exportToXLSX(MATRIX_ALERTS_ECH, ech_home_id, ALERTS_ECH, "plots/alerts_ech.xlsx")
+    exportToXLSX(MATRIX_ALERTS_CDB, cdb_home_id, ALERTS_CDB, SUM_ALERTS_CDB, "plots/alerts_cdb.xlsx")
+    exportToXLSX(MATRIX_ALERTS_ECH, ech_home_id, ALERTS_ECH, SUM_ALERTS_ECH, "plots/alerts_ech.xlsx")
 
     # Plot the matrix
     # plot_confusion_matrix(MATRIX_ALERTS_CDB, ALERTS_CDB, cdb_home_id)

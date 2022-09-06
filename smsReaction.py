@@ -21,9 +21,10 @@ Function to find a reaction in the dataframe in a global point of view.
 :param reaction:    List of reactions.
 :param ranking:     Ranking of each reaction in a list.
 :param matrix:      The matrix containing values about consumption.
+:param sum_alerts:  List of all consumption during alerts - same period outside alerts.
 :param index:       Index of the home id.
 """
-def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, index):
+def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, sum_alerts, index):
     for i in range(len(alerts)):
         starting_alert = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
         ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
@@ -37,10 +38,10 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, i
             # Compute the mean before and after the period of the alert
             mean = computeMeanUpToBound(df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert)
             mean += computeMeanUpToBound(df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert)
-            mean /= 2
-            
+            # Mean during the alert        
             mean_alert = df.query("ts >= \"" + alerts[i][0] + "\" and ts < \"" + alerts[i][1] + "\"")['p_cons'].mean()
-
+            # Global mean including the alert. We divide by 3 because we add 3 values
+            mean = (mean + mean_alert) / 3
             # We check if the mean is lower than during the alert
             if mean_alert < mean:
                 ranking[i] = ranking[i] + 1 if i in ranking else 1
@@ -48,12 +49,8 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, i
                     reaction[file_name[:6]].append(i)
                 else:
                     reaction[file_name[:6]] = [i]
-            # print("home index", index)
-            # print(alerts[i])
-            # print("mean during the alert", mean_alert)
-            # print("mean outside the alert", mean)
             matrix[index][i] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
-            # print(matrix)
+            sum_alerts[i] += mean_alert - mean
 
 
 """
@@ -72,20 +69,20 @@ This function will compute the mean before or after the alert according to the s
 def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_alert):
     finished = False
     current_period = starting_alert
-    print("starting", starting_alert)
     # The time between the beginning of the alert and the end of the alert
     delta_alert = ending_alert - starting_alert
     delta = datetime.timedelta(days=7*sign)
     mean = 0
     count = 0
     tmp_df = df
-    # print(months_home)
     # For each file before or after (depending on the sign) the alert.
     while not finished:
         # Check if the date is not an alert.
         is_alert = False
         for i in range(len(alerts)):
-             if str(current_period) in alerts[i]:
+            start = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
+            end = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
+            if start <= current_period and current_period <= end:
                 is_alert = True
                 break
         if not is_alert:
@@ -99,7 +96,6 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
             else:
                 find = False
                 # Search the following month
-                # print(months_home)
                 for i in range(len(months_home)):
                     # Check if years are equal
                     if int(months_home[i][7:11]) == int(current_period.year):

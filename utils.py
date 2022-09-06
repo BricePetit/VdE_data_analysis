@@ -160,10 +160,13 @@ Export the dataframe in a excel file.
 :param matrix:      Matrix containing the results of alerts.
 :param home_ids:    The id of each home.
 :param alerts:      Period of alerts.
+:param sum_alerts:  List of all consumption during alerts - same period outside alerts.
 :param path:        The path to register the excel file.
 """
-def exportToXLSX(matrix, home_ids, alerts, file_name):
+def exportToXLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     alerts = ['A'+ str(i+1) for i in range(len(alerts))]
     df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts)
+    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan"], columns=alerts)
+    df = pd.concat([df, tmp_df])
     print(df)
     df.to_excel(excel_writer = file_name)
