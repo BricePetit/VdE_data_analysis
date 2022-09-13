@@ -4,6 +4,7 @@ __author__ = "Brice Petit"
 __license__ = "MIT"
 
 
+from sys import set_coroutine_origin_tracking_depth
 from config import *
 
 #--------------------------------------#
@@ -24,7 +25,7 @@ Function to find a reaction in the dataframe in a global point of view.
 :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
 :param index:       Index of the home id.
 """
-def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, sum_alerts, index):
+def findGlobalReactionAndReport(df, file_name, path, alerts, reaction, ranking, matrix, sum_alerts, index):
     for i in range(len(alerts)):
         starting_alert = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
         ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
@@ -49,8 +50,18 @@ def findGlobalReaction(df, file_name, path, alerts, reaction, ranking, matrix, s
                     reaction[file_name[:6]].append(i)
                 else:
                     reaction[file_name[:6]] = [i]
-            matrix[index][i] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
-            sum_alerts[i] += mean_alert - mean
+            # Get the number of delta time used for the report
+            nb_delta_alert = len(REPORTS_HOURS)
+            # Compute the index according reported values
+            # For each alert, we have:
+            # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
+            alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
+            # Compute the percentage
+            matrix[index][alert_idx] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
+            # Compute the sum 
+            sum_alerts[alert_idx] += mean_alert - mean
+            # Find report
+            findReport(df, alerts, months_home,  matrix, sum_alerts, index, i)
 
 
 """
@@ -90,6 +101,7 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
             if current_period.month == (current_period-delta).month:
                 tmp_mean = tmp_df.query("ts >= \"" + str(current_period) + "\" and ts < \"" 
                                     + str(current_period + delta_alert) + "\"")['p_cons'].mean()
+                # If the consumption is not missing or negative
                 if tmp_mean > 0:
                     mean += tmp_mean
                     count += 1
@@ -110,6 +122,7 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
                     tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
                     tmp_mean = tmp_df.query("ts >= \"" + str(current_period) + "\" and ts < \"" 
                                     + str(current_period + delta_alert) + "\"")['p_cons'].mean()
+                    # If the consumption is not missing or negative
                     if tmp_mean > 0:
                         mean += tmp_mean
                         count += 1
@@ -125,52 +138,45 @@ def computeMeanUpToBound(df, months_home, sign, alerts, starting_alert, ending_a
 
 
 """
-Function to find if there is a report of the consumption.
-TODO: Adapt but after
+This function will find a report of the consumption before/after the alert.
 
-:param df:  The dataframe.
+:param df:          Dataframe
+:param alerts:      All alerts.
+:param months_home: List of months for a home_id
+:param matrix:      The matrix containing values about consumption.
+:param sum_alerts:  List of all consumption during alerts - same period outside alerts.
+:param index_i:     The index of the home_id.
+:param index_j:     The index of the alert.
+
+:return:                Return the mean.
 """
-def findReport(df):
-    global ALERTS_CDB, GLOBAL_MEAN, REPORTED
-    home_id = df['home_id'].iloc[0]
-    # For each alert
-    reported = []
-    for i in range(len(ALERTS_CDB)):
-        # We check if a consumer reduced the consumption
-        if GLOBAL_MEAN[home_id][i]:
-            alert_period = datetime.datetime.strptime(ALERTS_CDB[i][1], '%Y-%m-%d %H:%M:%S')
-            current_time = alert_period
-            # We will check if the consumer reduced the consumption 
-            while current_time < alert_period + datetime.timedelta(days=2):
-                # Return the other days of the month
-                # e.g. return all monday of the month
-                date_to_check = findSameDaysInMonth(current_time)
-                mean = 0
-                nb_dates = len(date_to_check)
-                alerted_df = df.query("ts >= \"" + str(current_time) + "\" and ts < \"" 
-                            + str(current_time + datetime.timedelta(hours=1)) + "\"")
-                # Average the consumption according the other day on the month
-                for j in range(nb_dates):
-                    tmp_df = df.query("ts >= \"" + str(date_to_check[j]) + "\" and ts < \"" 
-                            + str(date_to_check[j] + datetime.timedelta(hours=1)) + "\"")
-                    mean += (tmp_df["p_cons"].mean() / nb_dates)
-                # The consumer reported the consumption
-                if alerted_df["p_cons"].mean() > mean:
-                    if current_time.day == alert_period.day:
-                         reported.append("same day")
-                    elif current_time.day - alert_period.day == 1:
-                        reported.append("one day after")
-                    else:
-                        reported.append("two days after")
-                    break
-                else:
-                    # Increment
-                    current_time += datetime.timedelta(hours=1)
-
-        # The consumer did'nt report the consumption
-        if home_id not in REPORTED:
-            reported.append("never")
-    REPORTED[home_id] = reported
+def findReport(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
+    # Get the number of delta time used for the report
+    nb_delta_alert = len(REPORTS_HOURS)
+    # Compute the index according reported values
+    # For each alert, we have:
+    # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
+    alert_idx = (index_j * 2 * nb_delta_alert) + (index_j + nb_delta_alert)
+    # We used the -1 and 1 to go before/after the alert
+    for i in [-1, 1]:
+        # For each delta time
+        for j in range(nb_delta_alert):
+            # Convert ts string into datetime
+            if i == -1:
+                starting_alert = datetime.datetime.strptime(alerts[index_j][0], '%Y-%m-%d %H:%M:%S') + (-1 * REPORTS_HOURS[j])
+                ending_alert = datetime.datetime.strptime(alerts[index_j][0], '%Y-%m-%d %H:%M:%S')
+            else:
+                starting_alert = datetime.datetime.strptime(alerts[index_j][1], '%Y-%m-%d %H:%M:%S')
+                ending_alert = datetime.datetime.strptime(alerts[index_j][1], '%Y-%m-%d %H:%M:%S') + (REPORTS_HOURS[j])
+            # Compute the mean before and after the period of the alert
+            mean = computeMeanUpToBound(df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert)
+            mean += computeMeanUpToBound(df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert)
+            # Mean during the alert        
+            mean_alert = df.query("ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\"")['p_cons'].mean()
+            # Global mean including the alert. We divide by 3 because we add 3 values
+            mean = (mean + mean_alert) / 3
+            matrix[index_i][alert_idx + (i * (j + 1))] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
+            sum_alerts[alert_idx + (i * (j + 1))] += mean_alert - mean
 
 
 """

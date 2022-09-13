@@ -57,12 +57,12 @@ def computeAlertReaction():
                     if file[:6] not in previous_file:
                         previous_file.append(file[:6])
                         i += 1
-                    findGlobalReaction(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i)
+                    findGlobalReactionAndReport(df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i)
                 elif community == "ECH" and file[:6] in ['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']:
                     if file[:6] not in previous_file:
                         previous_file.append(file[:6])
                         i += 1
-                    findGlobalReaction(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i)
+                    findGlobalReactionAndReport(df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i)
                 
     
     print()

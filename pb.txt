@@ -1,8 +1,21 @@
+Maisos à voir plus tard avec Guillaume:
+CDB012
+CDB015
+CDB017
+CDB023 (seulement deux courbes/4)
+CDB045 (chelou)
+CDB047 => j'ai voulu changé les valeurs agrégées sauf qu'il n'y avait pas de pv en CDBA01
+ECHASC
+ECHCOM, c'est quoi VE a vérifer 
+
 Type de problème:
 	- Cas 1: 	Pas de données sur une période donnée
+		=> Pb dans la DB
 	- Cas 2: 	p_cons == p_tot && p_prod == 0 && p_cons neg
 	- Cas 3: 	p_cons neg (donc inversé)
 	- Cas 4: 	pic incohérent de données (p_cons ~= -1000000 && p_prod ~= 1000000)
+		=> filtrer la donnée et ne pas la considérer car erreur de mesure
+		=> pandas forward filling
 	- Cas 5: 	p_cons == -p_prod => p_tot == 0
 
 CDB001:

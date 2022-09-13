@@ -123,6 +123,8 @@ def resampleDataset(file, df):
 
 
 """
+Remove it later because another script do it in the DB
+
 Basically, the database encodes TS in UTC. So, we add 2 hours to the ts to obtain the correct TS.
 /!\ We need to check before if the data are in UTC or CET. /!\ 
 /!\ If it is in UTC, there are 2 different values => e.g. 2022-05-02 & 2022-05-03 22:00:00 /!\
@@ -164,9 +166,30 @@ Export the dataframe in a excel file.
 :param path:        The path to register the excel file.
 """
 def exportToXLSX(matrix, home_ids, alerts, sum_alerts, file_name):
-    alerts = ['A'+ str(i+1) for i in range(len(alerts))]
-    df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts)
-    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan"], columns=alerts)
+    # Create empty list of string
+    alerts_name = ["" for _ in range(len(matrix[0]))]
+    # Get the number of delta time used for the report
+    nb_delta_alert = len(REPORTS_HOURS)
+    for j in range(len(alerts)):
+        # Compute the index according reported values
+        # For each alert, we have:
+        # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
+        alert_idx = (j * 2 * nb_delta_alert) + (j + nb_delta_alert)
+        # We used the -1 and 1 to go before/after the alert
+        for k in [-1, 1]:
+            # For each delta time
+            for l in range(nb_delta_alert):
+                # Write values Aj -12h | Aj -6h | Aj -3h | Aj 3h | Aj 6h | Aj 12h |
+                # Where j is the number of the alert
+                alerts_name[alert_idx + (k * (l + 1))] = 'A'+ str(j+1) + ' ' + str(int(REPORTS_HOURS[l].seconds/3600) * k) + 'h'
+            # Write value Aj
+            alerts_name[alert_idx] = 'A'+ str(j+1)
+    # Create the dataframe with specific indexes and column name
+    df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
+    # Create a dataframe with the "Bilan"
+    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en Watt"], columns=alerts_name)
+    # Concatenate the two dataframes
     df = pd.concat([df, tmp_df])
     print(df)
+    # Write the dataframe into an xlsx file
     df.to_excel(excel_writer = file_name)

@@ -36,7 +36,7 @@ RESAMPLE = False
 INCONSISTENCY = False
 
 # Set to True if you want to enter in the function to plot
-PLOT = True
+PLOT = False
 
 # Set to true if you want to use the format 8 sec to plot
 SEC8 = False
@@ -45,13 +45,13 @@ SEC8 = False
 BASIC_PLOT = False
 
 # True we want to plot the average over the entire community
-AVERAGE_COMMUNITY = True
+AVERAGE_COMMUNITY = False
 
 # True if we want to verify reactions
 REACTION = False
 
 # True if we want to find the reaction to the sms
-GLOBAL_REACTION = True
+GLOBAL_REACTION = False
 
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]
@@ -104,13 +104,16 @@ ALERT_REACTION_ECH = {}
 RANKING_ALERT_CDB = {}
 RANKING_ALERT_ECH = {}
 
+# Hours to analyze
+REPORTS_HOURS = [datetime.timedelta(hours=3), datetime.timedelta(hours=6), datetime.timedelta(hours=12)]
+
 # Matrix containing 
 # MATRIX_ALERTS_CDB = np.zeros((len(os.listdir(DATASET_FOLDER + '/CDB')),len(ALERTS_CDB)))
 # MATRIX_ALERTS_ECH = np.zeros((len(os.listdir(DATASET_FOLDER + '/ECH')),len(ALERTS_ECH)))
 
-MATRIX_ALERTS_CDB = np.zeros((len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']),len(ALERTS_CDB)))
-MATRIX_ALERTS_ECH = np.zeros((len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),len(ALERTS_ECH)))
+MATRIX_ALERTS_CDB = np.zeros((len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']),len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB))))
+MATRIX_ALERTS_ECH = np.zeros((len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH))))
 
 # List of all consumption during alerts - same period outside alerts
-SUM_ALERTS_CDB = np.zeros(len(ALERTS_CDB))
-SUM_ALERTS_ECH = np.zeros(len(ALERTS_ECH))
+SUM_ALERTS_CDB = np.zeros(len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB)) )
+SUM_ALERTS_ECH = np.zeros(len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH)))
