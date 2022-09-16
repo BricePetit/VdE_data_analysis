@@ -4,37 +4,51 @@ __author__ = "Brice Petit"
 __license__ = "MIT"
 
 
-from config import *
+import datetime
+from dateutil import tz
+import numpy as np
+import os
+import pandas as pd
 
-"""
-Check if there is negative consumption in the dataframe. It will print the home_id and indexes 
-of the dataframe.
-"""
-def checkNegativeConsumption(df, home_id):
+
+from config import (
+    COMMUNITY_NAME,
+    RESAMPLED_FOLDER,
+    DATASET_FOLDER,
+    REPORTS_HOURS
+)
+
+
+def check_negative_consumption(df, home_id):
+    """
+    Check if there is negative consumption in the dataframe. It will print the home_id and indexes
+    of the dataframe.
+    """
     if (df['p_cons'] < 0).any().any():
         print()
-        print("/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\")
+        print("/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\")
         print("Home: " + home_id)
         print(df.index[df['p_cons'] < 0])
-        print("/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\")
+        print("/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\/!\\")
         print()
 
 
-"""
-Function to check inconsistencies. There are 5 cases:
-    - Case 1: Missing data during a period. (p_cons == 0)
-    - Case 2: p_cons == p_tot && p_prod == 0 && p_cons neg
-    - Case 3: p_cons neg (so inverted)
-    - Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000 ||
-                                        p_cons >= 100000 && p_prod <= -100000)
-    - Case 5: p_cons == -p_prod => p_tot == 0 (p_cons >= 0 && p_prod <= 0)
-"""
-def checkMistake():
+def check_mistake():
+    """
+    Function to check inconsistencies. There are 5 cases:
+        - Case 1: Missing data during a period. (p_cons == 0)
+        - Case 2: p_cons == p_tot && p_prod == 0 && p_cons neg
+        - Case 3: p_cons neg (so inverted)
+        - Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000 ||
+                                            p_cons >= 100000 && p_prod <= -100000)
+        - Case 5: p_cons == -p_prod => p_tot == 0 (p_cons >= 0 && p_prod <= 0)
+    """
     error_msg = "#----------Kind of problems----------#\n"
     error_msg += "#Case 1: Missing data during a period. (p_cons == 0)\n"
     error_msg += "#Case 2: p_cons == p_tot && p_prod == 0 && p_cons neg\n"
     error_msg += "#Case 3: p_cons neg (so inverted)\n"
-    error_msg += "#Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000 || p_cons >= 100000 && p_prod <= -100000)\n"
+    error_msg += "#Case 4: inconsistent data spike (p_cons <= -100000 && p_prod >= 100000"
+    error_msg += "|| p_cons >= 100000 && p_prod <= -100000)\n"
     error_msg += "#Case 5: p_cons == -p_prod => p_tot == 0 (p_cons >= 0 && p_prod <= 0)\n"
     for community in COMMUNITY_NAME:
         print("---------------Checking Inconsistencies---------------")
@@ -62,7 +76,8 @@ def checkMistake():
                 elif df['p_cons'].iloc[i] >= -100000 and df['p_prod'].iloc[i] <= -100000:
                     error_msg += "Case 4: " + df['ts'].iloc[i] + "\n"
                 # Case 5
-                elif df['p_cons'].iloc[i] == (df['p_prod'].iloc[i] * -1) and df['p_tot'].iloc[i] == 0:
+                elif (df['p_cons'].iloc[i] == (df['p_prod'].iloc[i] * -1)
+                        and df['p_tot'].iloc[i] == 0):
                     if df['p_cons'].iloc[i] > 0 and df['p_prod'].iloc[i] < 0:
                         error_msg += "Case 5: " + df['ts'].iloc[i] + "\n"
     # Write the message
@@ -71,21 +86,20 @@ def checkMistake():
     f.close()
 
 
-"""
-Function to resample the dataset. In order to apply that, we will apply an average of values 
-according to the number of minutes. When it's done, we write the dataframe in a file according to 
-the month.
+def resample_dataset(file, df):
+    """
+    Function to resample the dataset. In order to apply that, we will apply an average of values
+    according to the number of minutes. When it's done, we write the dataframe in a file
+    according to the month.
 
-:param file:    Name of the file.
-:param df:      Dataframe.
-"""
-def resampleDataset(file, df):
+    :param file:    Name of the file.
+    :param df:      Dataframe.
+    """
     # Create a new data frame as the original
-    new_df = pd.DataFrame(columns=['home_id','day','ts','p_cons','p_prod','p_tot'])
+    new_df = pd.DataFrame(columns=['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot'])
     initial_time = datetime.datetime.strptime(df['ts'][0], '%Y-%m-%d %H:%M:%S')
     # It represents the duration for the average
     delta = datetime.timedelta(minutes=15)
-    
     # We adjust the time in order to start at 00, 15, 30 or 45
     if initial_time.second % 60 != 00:
         initial_time += datetime.timedelta(seconds=(60 - (initial_time.second % 60)))
@@ -96,51 +110,60 @@ def resampleDataset(file, df):
     last_ts = datetime.datetime.strptime(df['ts'].iloc[-1], '%Y-%m-%d %H:%M:%S')
     while current_ts < last_ts:
         # Apply the query where we want: current_ts <= ts < current_ts + delta
-        tmp_df = df.query("ts >= \"" + str(current_ts) + "\" and ts < \"" + str(current_ts + delta)  + "\"")
+        tmp_df = df.query(
+            "ts >= \"" + str(current_ts) + "\" and ts < \"" + str(current_ts + delta) + "\""
+        )
         # Check if the df is not empty because it is possible to obtain a gap between periods
-        if  tmp_df.size != 0:
+        if tmp_df.size != 0:
             home_id = tmp_df['home_id'].iloc[0]
             day = tmp_df['day'].iloc[0]
             # Apply the average for the consumption values
-            average_p_cons = round(tmp_df['p_cons'].mean(),0)
-            average_p_prod = round(tmp_df['p_prod'].mean(),0)
-            average_p_tot = round(tmp_df['p_tot'].mean(),0)
+            average_p_cons = round(tmp_df['p_cons'].mean(), 0)
+            average_p_prod = round(tmp_df['p_prod'].mean(), 0)
+            average_p_tot = round(tmp_df['p_tot'].mean(), 0)
             # Create a temporary Dataframe with new values to combine with the final Dataframe
-            tmp_df2 = pd.DataFrame([[home_id,day,current_ts,average_p_cons,average_p_prod,average_p_tot]], 
-                                    columns=['home_id','day','ts','p_cons','p_prod','p_tot'])
+            tmp_df2 = pd.DataFrame(
+                [[home_id, day, current_ts, average_p_cons, average_p_prod, average_p_tot]],
+                columns=['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot']
+            )
             new_df = pd.concat([new_df, tmp_df2], ignore_index=True)
             # If the next 15 minutes are in another month, we will save the current month.
             if current_ts.month != (current_ts + delta).month:
-                new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_' 
-                                + str(current_ts.year) + "-" + str(current_ts.month) 
-                                + '_15min.csv', index=False)
-                new_df = pd.DataFrame(columns=['home_id','day','ts','p_cons','p_prod','p_tot'])
+                new_df.to_csv(
+                    RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_'
+                    + str(current_ts.year) + "-" + str(current_ts.month)
+                    + '_15min.csv', index=False
+                )
+                new_df = pd.DataFrame(columns=['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot'])
         # Update the timestamp
         current_ts = current_ts + delta
     # Write the sampled dataset
-    new_df.to_csv(RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_' + str(current_ts.year) + "-" 
-                    + str(current_ts.month) + '_15min.csv', index=False)
+    new_df.to_csv(
+        RESAMPLED_FOLDER + '/' + file[:3] + '/' + file[:-4] + '_' + str(current_ts.year) + "-"
+        + str(current_ts.month) + '_15min.csv', index=False
+    )
 
 
-"""
-Remove it later because another script do it in the DB
+def utc_to_cet(df, file_name, community_name):
+    """
+    Remove it later because another script do it in the DB
 
-Basically, the database encodes TS in UTC. So, we add 2 hours to the ts to obtain the correct TS.
-/!\ We need to check before if the data are in UTC or CET. /!\ 
-/!\ If it is in UTC, there are 2 different values => e.g. 2022-05-02 & 2022-05-03 22:00:00 /!\
+    Basically, the database encodes TS in UTC. So, we add 2 hours to the ts to obtain the
+    correct TS.
+    /!\\ We need to check before if the data are in UTC or CET. /!\
+    /!\\ If it is in UTC, there are 2 different values => e.g. 2022-05-02 & 2022-05-03 22:00:00 /!\
 
-:param df:              Dataframe
-:param file_name:       Name of the file & the extension
-:param community_name:  Name of the community
-"""
-def utcToCet(df, file_name, community_name):
+    :param df:              Dataframe
+    :param file_name:       Name of the file & the extension
+    :param community_name:  Name of the community
+    """
     # Convert the time
     time_check = datetime.datetime.strptime(df['ts'].iloc[0], '%Y-%m-%d %H:%M:%S')
     time_check = time_check.strftime('%Y-%m-%d') + " " + "23:00:00"
     # Query the dataframe
     time_df = df.query("ts == \"" + time_check + "\"")
-    t1 = datetime.datetime.strptime(time_df['ts'].iloc[0] , '%Y-%m-%d %H:%M:%S')
-    t2 = datetime.datetime.strptime(time_df['day'].iloc[0] , '%Y-%m-%d')
+    t1 = datetime.datetime.strptime(time_df['ts'].iloc[0], '%Y-%m-%d %H:%M:%S')
+    t2 = datetime.datetime.strptime(time_df['day'].iloc[0], '%Y-%m-%d')
     # If months are different => not in CET.
     if t1.day != t2.day:
         for i in range(len(df)):
@@ -151,21 +174,22 @@ def utcToCet(df, file_name, community_name):
             utc = utc.replace(tzinfo=from_zone)
             utc = utc.astimezone(to_zone)
             df.loc[i, 'ts'] = utc.replace(tzinfo=None)
-        df.to_csv(DATASET_FOLDER + '/'+ community_name + '/' + file_name, index=False)
+        df.to_csv(DATASET_FOLDER + '/' + community_name + '/' + file_name, index=False)
         print("Done!")
     else:
         print("Already correct!")
 
-"""
-Export the dataframe in a excel file.
 
-:param matrix:      Matrix containing the results of alerts.
-:param home_ids:    The id of each home.
-:param alerts:      Period of alerts.
-:param sum_alerts:  List of all consumption during alerts - same period outside alerts.
-:param path:        The path to register the excel file.
-"""
-def exportToXLSX(matrix, home_ids, alerts, sum_alerts, file_name):
+def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
+    """
+    Export the dataframe in a excel file.
+
+    :param matrix:      Matrix containing the results of alerts.
+    :param home_ids:    The id of each home.
+    :param alerts:      Period of alerts.
+    :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
+    :param path:        The path to register the excel file.
+    """
     # Create empty list of string
     alerts_name = ["" for _ in range(len(matrix[0]))]
     # Get the number of delta time used for the report
@@ -178,12 +202,14 @@ def exportToXLSX(matrix, home_ids, alerts, sum_alerts, file_name):
         # We used the -1 and 1 to go before/after the alert
         for k in [-1, 1]:
             # For each delta time
-            for l in range(nb_delta_alert):
+            for m in range(nb_delta_alert):
                 # Write values Aj -12h | Aj -6h | Aj -3h | Aj 3h | Aj 6h | Aj 12h |
                 # Where j is the number of the alert
-                alerts_name[alert_idx + (k * (l + 1))] = 'A'+ str(j+1) + ' ' + str(int(REPORTS_HOURS[l].seconds/3600) * k) + 'h'
+                alerts_name[alert_idx + (k * (m + 1))] = (
+                    'A' + str(j + 1) + ' ' + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
+                )
             # Write value Aj
-            alerts_name[alert_idx] = 'A'+ str(j+1)
+            alerts_name[alert_idx] = 'A' + str(j + 1)
     # Create the dataframe with specific indexes and column name
     df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
     # Create a dataframe with the "Bilan"
@@ -192,4 +218,4 @@ def exportToXLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     df = pd.concat([df, tmp_df])
     print(df)
     # Write the dataframe into an xlsx file
-    df.to_excel(excel_writer = file_name)
+    df.to_excel(excel_writer=file_name)

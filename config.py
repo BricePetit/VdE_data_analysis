@@ -1,18 +1,17 @@
-import calendar
-import copy
-import datetime
-from dateutil import tz
-import matplotlib
-import matplotlib.dates as dates
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-import pandas as pd
-import random
+__title__ = "config"
+__version__ = "1.0.0"
+__author__ = "Brice Petit"
+__license__ = "MIT"
 
-#------------------------------------#
-#----------GLOBAL VARIABLES----------#
-#------------------------------------#
+
+import datetime
+import numpy as np
+
+
+# ------------------------------------ #
+# ----------GLOBAL VARIABLES---------- #
+# ------------------------------------ #
+
 
 # Name of the folder where the dataset is located
 DATASET_FOLDER = 'dataset'
@@ -57,28 +56,32 @@ GLOBAL_REACTION = False
 COMMUNITY_NAME = ["CDB", "ECH"]
 
 # List of period where the consumer need to reduce the consumption for CDB
-ALERTS_CDB = [["2022-04-28 19:00:00", "2022-04-28 21:00:00"], 
-              ["2022-05-04 14:00:00", "2022-05-04 16:00:00"],
-              ["2022-05-15 17:00:00", "2022-05-15 19:00:00"], 
-              ["2022-06-03 18:00:00", "2022-06-03 20:00:00"], 
-              ["2022-06-11 11:00:00", "2022-06-11 13:00:00"], 
-              ["2022-06-23 15:00:00", "2022-06-23 17:00:00"], 
-              ["2022-07-12 18:00:00", "2022-07-12 21:00:00"], 
-              ["2022-07-20 18:00:00", "2022-07-20 21:00:00"], 
-              ["2022-08-02 18:00:00", "2022-08-02 21:00:00"]]
-            #   ["2022-08-19 18:00:00", "2022-08-19 21:00:00"]]
+ALERTS_CDB = [
+    ["2022-04-28 19:00:00", "2022-04-28 21:00:00"],
+    ["2022-05-04 14:00:00", "2022-05-04 16:00:00"],
+    ["2022-05-15 17:00:00", "2022-05-15 19:00:00"],
+    ["2022-06-03 18:00:00", "2022-06-03 20:00:00"],
+    ["2022-06-11 11:00:00", "2022-06-11 13:00:00"],
+    ["2022-06-23 15:00:00", "2022-06-23 17:00:00"],
+    ["2022-07-12 18:00:00", "2022-07-12 21:00:00"],
+    ["2022-07-20 18:00:00", "2022-07-20 21:00:00"],
+    ["2022-08-02 18:00:00", "2022-08-02 21:00:00"],
+    ["2022-08-19 18:00:00", "2022-08-19 21:00:00"]
+]
 
 # List of period where the consumer need to reduce the consumption for échappée
-ALERTS_ECH = [["2022-05-05 18:00:00", "2022-05-05 21:00:00"],
-              ["2022-05-21 11:00:00", "2022-05-21 14:00:00"], 
-              ["2022-06-05 10:00:00", "2022-06-05 13:00:00"], 
-              ["2022-06-21 17:00:00", "2022-06-21 20:00:00"], 
-              ["2022-07-12 16:00:00", "2022-07-12 22:00:00"], 
-              ["2022-07-18 14:00:00", "2022-07-18 20:00:00"], 
-              ["2022-08-05 15:00:00", "2022-08-05 21:00:00"]]
-            #   ["2022-08-21 15:00:00", "2022-08-21 21:00:00"]]
+ALERTS_ECH = [
+    ["2022-05-05 18:00:00", "2022-05-05 21:00:00"],
+    ["2022-05-21 11:00:00", "2022-05-21 14:00:00"],
+    ["2022-06-05 10:00:00", "2022-06-05 13:00:00"],
+    ["2022-06-21 17:00:00", "2022-06-21 20:00:00"],
+    ["2022-07-12 16:00:00", "2022-07-12 22:00:00"],
+    ["2022-07-18 14:00:00", "2022-07-18 20:00:00"],
+    ["2022-08-05 15:00:00", "2022-08-05 21:00:00"],
+    ["2022-08-21 15:00:00", "2022-08-21 21:00:00"]
+]
 
-# Dictionaries containing if a participant respected the restriction period from a global 
+# Dictionaries containing if a participant respected the restriction period from a global
 # point of view
 GLOBAL_MEAN = {}
 GLOBAL_MEDIAN = {}
@@ -88,10 +91,10 @@ HOURS_ALERT_PERIOD = 0
 for msg in ALERTS_CDB:
     lower_bound = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
     upper_bound = datetime.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
-    if HOURS_ALERT_PERIOD < int(((upper_bound - lower_bound).total_seconds())/3600):
-        HOURS_ALERT_PERIOD = int(((upper_bound - lower_bound).total_seconds())/3600)
+    if HOURS_ALERT_PERIOD < int(((upper_bound - lower_bound).total_seconds()) / 3600):
+        HOURS_ALERT_PERIOD = int(((upper_bound - lower_bound).total_seconds()) / 3600)
 
-# Dictionaries containing if a participant respected the restriction period from hours 
+# Dictionaries containing if a participant respected the restriction period from hours
 # point of view
 HOURS_MEAN_CDB = {}
 HOURS_MEAN_ECHAP = {}
@@ -105,15 +108,26 @@ RANKING_ALERT_CDB = {}
 RANKING_ALERT_ECH = {}
 
 # Hours to analyze
-REPORTS_HOURS = [datetime.timedelta(hours=3), datetime.timedelta(hours=6), datetime.timedelta(hours=12)]
+REPORTS_HOURS = [
+    datetime.timedelta(hours=3), datetime.timedelta(hours=6), datetime.timedelta(hours=12)
+]
 
-# Matrix containing 
+# Matrix containing
 # MATRIX_ALERTS_CDB = np.zeros((len(os.listdir(DATASET_FOLDER + '/CDB')),len(ALERTS_CDB)))
 # MATRIX_ALERTS_ECH = np.zeros((len(os.listdir(DATASET_FOLDER + '/ECH')),len(ALERTS_ECH)))
 
-MATRIX_ALERTS_CDB = np.zeros((len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']),len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB))))
-MATRIX_ALERTS_ECH = np.zeros((len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH))))
+MATRIX_ALERTS_CDB = np.zeros((
+    len([
+        'CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011',
+        'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043'
+    ]),
+    len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB))
+))
+MATRIX_ALERTS_ECH = np.zeros((
+    len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']),
+    len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH))
+))
 
 # List of all consumption during alerts - same period outside alerts
-SUM_ALERTS_CDB = np.zeros(len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB)) )
+SUM_ALERTS_CDB = np.zeros(len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB)))
 SUM_ALERTS_ECH = np.zeros(len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH)))

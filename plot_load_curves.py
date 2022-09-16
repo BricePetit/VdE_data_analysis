@@ -1,48 +1,77 @@
-__title__ = "plotLoadCurves"
+__title__ = "plot_load_curves"
 __version__ = "1.0.0"
 __author__ = "Brice Petit"
 __license__ = "MIT"
 
-from config import *
 
-#----------------------------------#
-#----------PLOT FUNCTIONS----------#
-#----------------------------------#
+from config import (
+    COMMUNITY_NAME,
+    SEC8
+)
 
-"""
-Function to plot the average consumption from the starting date to the ending date for
-a given community. The community is ECH or CDB.
 
-:param starting:        The starting date.
-:param ending:          The ending date.
-:param current_folder:  The folder where we need to consider data.
-:param house_nb:        Number of house to apply the average.
-:param fmt:             Format used to generate indexes. '15min' or '8S'.
-"""
-def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
+import matplotlib.dates as dates
+import matplotlib.pyplot as plt
+import os
+import pandas as pd
+import random
+
+
+# ---------------------------------- #
+# ----------PLOT FUNCTIONS---------- #
+# ---------------------------------- #
+
+
+def plot_average_community(starting, ending, current_folder, house_nb, fmt):
+    """
+    Function to plot the average consumption from the starting date to the ending date for
+    a given community. The community is ECH or CDB.
+
+    :param starting:        The starting date.
+    :param ending:          The ending date.
+    :param current_folder:  The folder where we need to consider data.
+    :param house_nb:        Number of house to apply the average.
+    :param fmt:             Format used to generate indexes. '15min' or '8S'.
+    """
     # For file in the folder resampled folder
     for community in COMMUNITY_NAME:
         # Create a new dataframe to apply the average
-        new_df = pd.DataFrame(columns=['ts','p_cons','p_prod','p_tot'])
+        new_df = pd.DataFrame(columns=['ts', 'p_cons', 'p_prod', 'p_tot'])
         # Name of all houses that are taken into consideration
         house_name = ""
         # Count the number of house in the community
         count = 0
         if community == "ECH" and house_nb > 19:
-            house_nb = len(['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16'])
+            house_nb = len([
+                'ECHL01', 'ECHL05', 'ECHL07', 'ECHL08',
+                'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16'
+            ])
         elif community == "CDB" and house_nb > 28:
-            house_nb = len(['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043'])
+            house_nb = len([
+                'CDB002', 'CDB006', 'CDB008', 'CDB009',
+                'CDB011', 'CDB014', 'CDB030', 'CDB033',
+                'CDB036', 'CDB042', 'CDB043'
+            ])
 
         if community == 'ECH':
-            all_files = ['ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16']
+            all_files = [
+                'ECHL01', 'ECHL05', 'ECHL07',
+                'ECHL08', 'ECHL11', 'ECHL12',
+                'ECHL13', 'ECHL15', 'ECHL16'
+            ]
             sep = '_'
         else:
-            all_files = ['CDB002', 'CDB006', 'CDB008', 'CDB009', 'CDB011', 'CDB014', 'CDB030', 'CDB033', 'CDB036', 'CDB042', 'CDB043']
+            all_files = [
+                'CDB002', 'CDB006', 'CDB008',
+                'CDB009', 'CDB011', 'CDB014',
+                'CDB030', 'CDB033', 'CDB036',
+                'CDB042', 'CDB043'
+            ]
             sep = '-'
         # All files in the dataset
         # all_files = [f for f in os.listdir(DATASET_FOLDER + '/' + community)]
         # Temporary files that we want to use
-        
+
         chosen_house = random.sample(range(0, len(all_files)), house_nb)
         current_path = current_folder + '/' + community + '/'
         print(all_files)
@@ -53,7 +82,10 @@ def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
                 df = pd.read_csv(current_path + all_files[house] + '.csv')
             else:
                 # Read the file and create a dataframe
-                df = pd.read_csv(current_path + all_files[house][:6] + '_' + starting[:4] + sep + starting[6] + '_' + fmt + '.csv')
+                df = pd.read_csv(
+                    current_path + all_files[house][:6] + '_' + starting[:4]
+                    + sep + starting[6] + '_' + fmt + '.csv'
+                )
             # Query the period on the dataframe.
             week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
             # We check if the new dataframe is not empty
@@ -64,8 +96,10 @@ def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
                 new_df['p_tot'] = new_df['p_tot'] + week['p_tot'].values
             else:
                 # Initialize the dataframe in the case where it is empty
-                new_df = pd.DataFrame({'ts':week['ts'],'p_cons':week['p_cons'],'p_prod':week['p_prod'],
-                                        'p_tot':week['p_tot']})
+                new_df = pd.DataFrame({
+                    'ts': week['ts'], 'p_cons': week['p_cons'],
+                    'p_prod': week['p_prod'], 'p_tot': week['p_tot']
+                })
             count += 1
             house_name = house_name + '-' + all_files[house]
         # Divide all values by the number of house in the community
@@ -73,23 +107,26 @@ def plotAverageCommunity(starting, ending, current_folder, house_nb, fmt):
         new_df['p_prod'] = new_df['p_prod'] / count
         new_df['p_tot'] = new_df['p_tot'] / count
         # Plot the results
-        plotBasicPeriod(new_df, "plots/" + community + "/average_community", "average_" + community + "_" 
-                        + str(house_nb) + '_' + house_name, starting, ending, fmt)
+        plot_basic_period(
+            new_df, "plots/" + community + "/average_community", "average_" + community
+            + "_" + str(house_nb) + '_' + house_name, starting, ending, fmt
+        )
 
-"""
-Plot a curve according to the starting and ending date.
 
-:param df:          The dataframe.
-:param path:        The pave to save the plot.
-:param home_id:     Id of the house in str.
-:param starting:    The beginning of the date.
-:param ending:      The end of the date.
-:param fmt:         Format for indexes. '15min' or '8S'.
-"""
-def plotBasicPeriod(df, path, home_id, starting, ending, fmt='15min'):
+def plot_basic_period(df, path, home_id, starting, ending, fmt='15min'):
+    """
+    Plot a curve according to the starting and ending date.
+
+    :param df:          The dataframe.
+    :param path:        The pave to save the plot.
+    :param home_id:     Id of the house in str.
+    :param starting:    The beginning of the date.
+    :param ending:      The end of the date.
+    :param fmt:         Format for indexes. '15min' or '8S'.
+    """
     # Query data for the period.
     week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
-    # Create time values according to the format for the plot on the x-axis that is 
+    # Create time values according to the format for the plot on the x-axis that is
     # on the bottom
     idx = pd.DatetimeIndex(week['ts'])
     # Parameter to obtain a large figure
