@@ -35,7 +35,7 @@ RESAMPLE = False
 INCONSISTENCY = False
 
 # Set to True if you want to enter in the function to plot
-PLOT = True
+PLOT = False
 
 # Set to true if you want to use the format 8 sec to plot
 SEC8 = False
@@ -50,7 +50,7 @@ AVERAGE_COMMUNITY = False
 AVERAGE_COMMUNITIES = False
 
 # True we want to plot the aggregation
-AGGREGATION = True
+AGGREGATION = False
 
 # True if we want to verify reactions
 REACTION = False
