@@ -213,7 +213,7 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     # Create the dataframe with specific indexes and column name
     df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
     # Create a dataframe with the "Bilan"
-    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en Watt"], columns=alerts_name)
+    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en kWh"], columns=alerts_name)
     # Concatenate the two dataframes
     df = pd.concat([df, tmp_df])
     print(df)

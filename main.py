@@ -6,7 +6,12 @@ __license__ = "MIT"
 import os
 import pandas as pd
 
-from plot_load_curves import plot_average_community, plot_basic_period
+from plot_load_curves import (
+    plot_average_community,
+    plot_basic_period,
+    average_through_community,
+    plot_aggregation
+)
 from sms_reaction import find_global_reaction_and_report
 from utils import (
     check_negative_consumption, utc_to_cet, resample_dataset, export_to_XLSX, check_mistake
@@ -33,6 +38,8 @@ from config import (
     SEC8,
     BASIC_PLOT,
     AVERAGE_COMMUNITY,
+    AVERAGE_COMMUNITIES,
+    AGGREGATION,
     # Variables for CDB
     ALERTS_CDB,
     ALERT_REACTION_CDB,
@@ -195,6 +202,18 @@ def all_plots():
         plot_average_community(
             "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 11, fmt
         )
+
+    if AVERAGE_COMMUNITIES:
+        print("--------------Plotting average through communities--------------")
+        for nb_selected_house in [5, 10, 15, 20]:
+            print(f"--------------{nb_selected_house} selected houses--------------")
+            average_through_community(
+                "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, nb_selected_house, fmt
+            )
+
+    if AGGREGATION:
+        print("--------------Plotting Aggregation--------------")
+        plot_aggregation("2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, fmt)
 
 
 def main():

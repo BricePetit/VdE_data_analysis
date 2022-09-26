@@ -48,18 +48,25 @@ def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranki
                     if file_name[:6] == file2[:6]:
                         months_home.append(file2)
             # Compute the mean before and after the period of the alert
-            mean = compute_mean_up_to_bound(
-                df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert
-            )
-            mean += compute_mean_up_to_bound(
-                df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert
-            )
+            count = 0
+            mean = 0
+            sum_period = 0
+            for k in [-1, 1]:
+                tmp_mean, tmp_sum = compute_mean_sum_up_to_bound(
+                    df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
+                )
+                if tmp_mean > 0:
+                    count += 1
+                    mean += tmp_mean
+                if tmp_sum > 0:
+                    sum_period += tmp_sum
             # Mean during the alert
-            mean_alert = df.query(
-                "ts >= \"" + alerts[i][0] + "\" and ts < \"" + alerts[i][1] + "\""
-            )['p_cons'].mean()
-            # Global mean including the alert. We divide by 3 because we add 3 values
-            mean = (mean + mean_alert) / 3
+            alert_df = df.query(
+                "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
+            )['p_cons']
+            mean_alert = alert_df.mean()
+            count += 1
+            mean = (mean + mean_alert) / count
             # We check if the mean is lower than during the alert
             if mean_alert < mean:
                 ranking[i] = ranking[i] + 1 if i in ranking else 1
@@ -74,14 +81,18 @@ def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranki
             # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
             alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
             # Compute the percentage
-            matrix[index][alert_idx] = ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
+            matrix[index][alert_idx] = (
+                ((mean_alert - mean) / mean) * 100 if mean > 0 and mean_alert > 0 else 0
+            )
             # Compute the sum
-            sum_alerts[alert_idx] += mean_alert - mean
+            if alert_df.sum() > 0 and sum_period > 0:
+                sum_alerts[alert_idx] += (alert_df.sum() - sum_period) / 1000
+
             # Find report
             find_report(df, alerts, months_home,  matrix, sum_alerts, index, i)
 
 
-def compute_mean_up_to_bound(df, months_home, sign, alerts, starting_alert, ending_alert):
+def compute_mean_sum_up_to_bound(df, months_home, sign, alerts, starting_alert, ending_alert):
     """
     This function will compute the mean before or after the alert according to the sign
 
@@ -93,14 +104,14 @@ def compute_mean_up_to_bound(df, months_home, sign, alerts, starting_alert, endi
     :param starting_alert:  The beginning of the alert.
     :param ending_alert:    The end of the alert.
 
-    :return:                Return the mean.
+    :return:                Return the mean and the sum during the period.
     """
     finished = False
     current_period = starting_alert
     # The time between the beginning of the alert and the end of the alert
     delta_alert = ending_alert - starting_alert
     delta = datetime.timedelta(days=7 * sign)
-    mean = 0
+    sum_period = 0
     count = 0
     tmp_df = df
     # For each file before or after (depending on the sign) the alert.
@@ -122,7 +133,7 @@ def compute_mean_up_to_bound(df, months_home, sign, alerts, starting_alert, endi
                 )['p_cons'].mean()
                 # If the consumption is not missing or negative
                 if tmp_mean > 0:
-                    mean += tmp_mean
+                    sum_period += tmp_mean
                     count += 1
             else:
                 find = False
@@ -146,7 +157,7 @@ def compute_mean_up_to_bound(df, months_home, sign, alerts, starting_alert, endi
                     )['p_cons'].mean()
                     # If the consumption is not missing or negative
                     if tmp_mean > 0:
-                        mean += tmp_mean
+                        sum_period += tmp_mean
                         count += 1
                 # Otherwise, there is no more file
                 else:
@@ -156,7 +167,7 @@ def compute_mean_up_to_bound(df, months_home, sign, alerts, starting_alert, endi
             finished = True
         else:
             current_period += delta
-    return mean / (1 if count == 0 else count)
+    return sum_period / (1 if count == 0 else count), sum_period
 
 
 def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
@@ -196,19 +207,28 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
                     + (REPORTS_HOURS[j])
                 )
             # Compute the mean before and after the period of the alert
-            mean = compute_mean_up_to_bound(
-                df, copy.deepcopy(months_home), -1, alerts, starting_alert, ending_alert
-            )
-            mean += compute_mean_up_to_bound(
-                df, copy.deepcopy(months_home), 1, alerts, starting_alert, ending_alert
-            )
+            count = 0
+            mean = 0
+            sum_period = 0
+            for k in [-1, 1]:
+                tmp_mean, tmp_sum = compute_mean_sum_up_to_bound(
+                    df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
+                )
+                if tmp_mean > 0:
+                    count += 1
+                    mean += tmp_mean
+                if tmp_sum > 0:
+                    sum_period += tmp_sum
+
             # Mean during the alert
-            mean_alert = df.query(
+            alert_df = df.query(
                 "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
-            )['p_cons'].mean()
-            # Global mean including the alert. We divide by 3 because we add 3 values
-            mean = (mean + mean_alert) / 3
+            )['p_cons']
+            mean_alert = alert_df.mean()
+            count += 1
+            mean = (mean + mean_alert) / count
             matrix[index_i][alert_idx + (i * (j + 1))] = (
-                ((mean_alert - mean) / mean) * 100 if mean != 0 else 0
+                ((mean_alert - mean) / mean) * 100 if mean > 0 and mean_alert > 0 else 0
             )
-            sum_alerts[alert_idx + (i * (j + 1))] += mean_alert - mean
+            if alert_df.sum() > 0 and sum_period > 0:
+                sum_alerts[alert_idx + (i * (j + 1))] += (alert_df.sum() - sum_period) / 1000
