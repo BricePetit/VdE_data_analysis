@@ -56,10 +56,10 @@ AVERAGE_COMMUNITIES = False
 AGGREGATION = False
 
 # True if we want to verify reactions
-REACTION = False
+REACTION = True
 
 # True if we want to find the reaction to the sms
-GLOBAL_REACTION = False
+GLOBAL_REACTION = True
 
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]
@@ -111,10 +111,6 @@ HOURS_MEAN_ECHAP = {}
 # Dictionary of all houses and the index of the alert
 ALERT_REACTION_CDB = {}
 ALERT_REACTION_ECH = {}
-
-# Dictionary to rank alerts
-RANKING_ALERT_CDB = {}
-RANKING_ALERT_ECH = {}
 
 # Hours to analyze
 REPORTS_HOURS = [

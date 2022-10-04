@@ -274,7 +274,7 @@ def plot_basic_period_area(df, path, home_id, starting, ending, fmt='15min'):
     ax.plot(idx, week['p_cons'], color="red")
     ax.plot(idx, week['p_prod'], color="blue")
     ax.plot(idx, week['p_tot'], color="gray")
-
+    # Fill areas
     ax.fill_between(idx, week['p_tot'], where=week['p_tot'] > 0, color="palegreen")
     ax.fill_between(idx, week['p_tot'], where=week['p_tot'] < 0, color="lightyellow")
     # Parameter to plot hours on the 2e axis

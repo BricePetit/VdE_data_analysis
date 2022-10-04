@@ -21,8 +21,7 @@ import pandas as pd
 # -------------------------------------- #
 
 
-def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranking, matrix,
-                                    sum_alerts, index):
+def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_alerts, index):
     """
     Function to find a reaction in the dataframe in a global point of view.
 
@@ -30,8 +29,6 @@ def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranki
     :param file_name:   Complete name of the file
     :param path:        Path to the file.
     :param alerts:      List of alerts.
-    :param reaction:    List of reactions.
-    :param ranking:     Ranking of each reaction in a list.
     :param matrix:      The matrix containing values about consumption.
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
     :param index:       Index of the home id.
@@ -41,39 +38,32 @@ def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranki
         ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
         if (int(file_name[7:11]) == starting_alert.year
                 and int(file_name[12]) == starting_alert.month):
+            nb_elem = 0
+            mean_not_alert = 0
+            sum_not_alert = 0
             months_home = []
             # We recover all month for the current home
             for file2 in os.listdir(path):
                 if file_name != file2:
                     if file_name[:6] == file2[:6]:
                         months_home.append(file2)
-            # Compute the mean before and after the period of the alert
-            count = 0
-            mean = 0
-            sum_period = 0
+            # Sum all values before and after the period of the alert
             for k in [-1, 1]:
-                tmp_mean, tmp_sum = compute_mean_sum_up_to_bound(
+                tmp_sum, tmp_nb_elem = compute_sum_up_to_bound_and_count(
                     df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
                 )
-                if tmp_mean > 0:
-                    count += 1
-                    mean += tmp_mean
                 if tmp_sum > 0:
-                    sum_period += tmp_sum
+                    sum_not_alert += tmp_sum
+                    nb_elem += tmp_nb_elem
             # Mean during the alert
             alert_df = df.query(
                 "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
             )['p_cons']
+            sum_alert = alert_df.sum()
             mean_alert = alert_df.mean()
-            count += 1
-            mean = (mean + mean_alert) / count
-            # We check if the mean is lower than during the alert
-            if mean_alert < mean:
-                ranking[i] = ranking[i] + 1 if i in ranking else 1
-                if file_name[:6] in reaction:
-                    reaction[file_name[:6]].append(i)
-                else:
-                    reaction[file_name[:6]] = [i]
+            # Combined mean
+            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
+            mean_not_alert = sum_not_alert / nb_elem
             # Get the number of delta time used for the report
             nb_delta_alert = len(REPORTS_HOURS)
             # Compute the index according reported values
@@ -82,17 +72,18 @@ def find_global_reaction_and_report(df, file_name, path, alerts, reaction, ranki
             alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
             # Compute the percentage
             matrix[index][alert_idx] = (
-                ((mean_alert - mean) / mean) * 100 if mean > 0 and mean_alert > 0 else 0
+                ((mean_alert - mean_not_alert) / global_mean)
+                * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
             )
             # Compute the sum
-            if alert_df.sum() > 0 and sum_period > 0:
-                sum_alerts[alert_idx] += (alert_df.sum() - sum_period) / 1000
+            if sum_alert > 0 and sum_not_alert > 0:
+                sum_alerts[alert_idx] += (sum_alert - sum_not_alert) / 1000
 
             # Find report
             find_report(df, alerts, months_home,  matrix, sum_alerts, index, i)
 
 
-def compute_mean_sum_up_to_bound(df, months_home, sign, alerts, starting_alert, ending_alert):
+def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_alert, ending_alert):
     """
     This function will compute the mean before or after the alert according to the sign
 
@@ -104,9 +95,8 @@ def compute_mean_sum_up_to_bound(df, months_home, sign, alerts, starting_alert, 
     :param starting_alert:  The beginning of the alert.
     :param ending_alert:    The end of the alert.
 
-    :return:                Return the mean and the sum during the period.
+    :return:                Return the sum during the period and the number of elements.
     """
-    finished = False
     current_period = starting_alert
     # The time between the beginning of the alert and the end of the alert
     delta_alert = ending_alert - starting_alert
@@ -115,7 +105,7 @@ def compute_mean_sum_up_to_bound(df, months_home, sign, alerts, starting_alert, 
     count = 0
     tmp_df = df
     # For each file before or after (depending on the sign) the alert.
-    while not finished:
+    while True:
         # Check if the date is not an alert.
         is_alert = False
         for i in range(len(alerts)):
@@ -124,50 +114,48 @@ def compute_mean_sum_up_to_bound(df, months_home, sign, alerts, starting_alert, 
             if start <= current_period and current_period <= end:
                 is_alert = True
                 break
+        # If it is not an alert, we query the date and we do the sum
         if not is_alert:
-            # check if the month is the same
-            if current_period.month == (current_period - delta).month:
-                tmp_mean = tmp_df.query(
+            tmp_p_cons = (
+                tmp_df
+                .query(
                     "ts >= \"" + str(current_period) + "\" and ts < \""
                     + str(current_period + delta_alert) + "\""
-                )['p_cons'].mean()
-                # If the consumption is not missing or negative
-                if tmp_mean > 0:
-                    sum_period += tmp_mean
-                    count += 1
-            else:
+                )['p_cons']
+            )
+            tmp_sum = tmp_p_cons.sum()
+            # If the consumption is not missing or negative
+            if tmp_sum > 0:
+                sum_period += tmp_sum
+                count += len(tmp_p_cons.index)
+        # should be >= now
+        if current_period + delta >= datetime.datetime.strptime("2022-08-12 15:45:00", '%Y-%m-%d %H:%M:%S'):
+            break
+        else:
+            current_period += delta
+            # check if the month is different
+            if current_period.month != (current_period - delta).month:
                 find = False
+                file_name = ""
                 # Search the following month
                 for i in range(len(months_home)):
-                    # Check if years are equal
-                    if int(months_home[i][7:11]) == int(current_period.year):
-                        # Check if months are equals, case where the month is one or two digit(s)
-                        if (int(months_home[i][12]) == int(current_period.month)
-                                or months_home[i][12:14] == str(current_period.month)):
-                            find = True
-                            file_name = months_home[i]
-                            del months_home[i]
-                            break
+                    # Check if years are equal and check if months are equals,
+                    # case where the month is one or two digit(s)
+                    if ((int(months_home[i][7:11]) == int(current_period.year))
+                        and
+                        (int(months_home[i][12]) == int(current_period.month)
+                            or months_home[i][12:14] == str(current_period.month))):
+                        find = True
+                        file_name = months_home[i]
+                        del months_home[i]
+                        break
                 # If it is the case, we continue
                 if find:
                     tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
-                    tmp_mean = tmp_df.query(
-                        "ts >= \"" + str(current_period) + "\" and ts < \""
-                        + str(current_period + delta_alert) + "\""
-                    )['p_cons'].mean()
-                    # If the consumption is not missing or negative
-                    if tmp_mean > 0:
-                        sum_period += tmp_mean
-                        count += 1
                 # Otherwise, there is no more file
                 else:
-                    finished = True
-        # should be >= now
-        if current_period + delta >= datetime.datetime.strptime("2022-08-12 15:45:00", '%Y-%m-%d %H:%M:%S'):
-            finished = True
-        else:
-            current_period += delta
-    return sum_period / (1 if count == 0 else count), sum_period
+                    break
+    return sum_period, count
 
 
 def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
@@ -207,28 +195,32 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
                     + (REPORTS_HOURS[j])
                 )
             # Compute the mean before and after the period of the alert
-            count = 0
-            mean = 0
-            sum_period = 0
+            nb_elem = 0
+            mean_not_alert = 0
+            sum_not_alert = 0
             for k in [-1, 1]:
-                tmp_mean, tmp_sum = compute_mean_sum_up_to_bound(
+                tmp_sum, tmp_nb_elem = compute_sum_up_to_bound_and_count(
                     df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
                 )
-                if tmp_mean > 0:
-                    count += 1
-                    mean += tmp_mean
                 if tmp_sum > 0:
-                    sum_period += tmp_sum
+                    sum_not_alert += tmp_sum
+                    nb_elem += tmp_nb_elem
 
             # Mean during the alert
             alert_df = df.query(
                 "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
             )['p_cons']
+            sum_alert = alert_df.sum()
             mean_alert = alert_df.mean()
-            count += 1
-            mean = (mean + mean_alert) / count
+            # Compute global mean
+            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
+            # Compute mean without the alert periode
+            mean_not_alert = sum_not_alert / nb_elem
+            # Register the percentage of reduction
             matrix[index_i][alert_idx + (i * (j + 1))] = (
-                ((mean_alert - mean) / mean) * 100 if mean > 0 and mean_alert > 0 else 0
+                ((mean_alert - mean_not_alert) / global_mean)
+                * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
             )
-            if alert_df.sum() > 0 and sum_period > 0:
-                sum_alerts[alert_idx + (i * (j + 1))] += (alert_df.sum() - sum_period) / 1000
+            # Register the total sum of energy consumption in kWh
+            if sum_alert > 0 and sum_not_alert > 0:
+                sum_alerts[alert_idx + (i * (j + 1))] += (sum_alert - sum_not_alert) / 1000

@@ -44,14 +44,10 @@ from config import (
     AGGREGATION,
     # Variables for CDB
     ALERTS_CDB,
-    ALERT_REACTION_CDB,
-    RANKING_ALERT_CDB,
     MATRIX_ALERTS_CDB,
     SUM_ALERTS_CDB,
     # Variables for ECH
     ALERTS_ECH,
-    ALERT_REACTION_ECH,
-    RANKING_ALERT_ECH,
     MATRIX_ALERTS_ECH,
     SUM_ALERTS_ECH,
 )
@@ -101,49 +97,28 @@ def compute_alert_reaction():
             print("---------------" + file[:6] + "---------------")
             df = pd.read_csv(path + '/' + file)
             # Find if a house reacted to the message
-            if GLOBAL_REACTION:
-                if community == "CDB" and file[:6] in [
-                    'CDB002', 'CDB006', 'CDB008', 'CDB009',
-                    'CDB011', 'CDB014', 'CDB030', 'CDB033',
-                    'CDB036', 'CDB042', 'CDB043'
-                ]:
-                    if file[:6] not in previous_file:
-                        previous_file.append(file[:6])
-                        i += 1
-                    find_global_reaction_and_report(
-                        df, file, path, ALERTS_CDB, ALERT_REACTION_CDB, RANKING_ALERT_CDB,
-                        MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i
-                    )
-                elif community == "ECH" and file[:6] in [
-                    'ECHL01', 'ECHL05', 'ECHL07',
-                    'ECHL08', 'ECHL11', 'ECHL12',
-                    'ECHL13', 'ECHL15', 'ECHL16'
-                ]:
-                    if file[:6] not in previous_file:
-                        previous_file.append(file[:6])
-                        i += 1
-                    find_global_reaction_and_report(
-                        df, file, path, ALERTS_ECH, ALERT_REACTION_ECH, RANKING_ALERT_ECH,
-                        MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i
-                    )
-
-    print()
-    print("----------CDB ALERTS RANKING----------")
-    for key in RANKING_ALERT_CDB:
-        print(
-            "The alert", key, f"{ALERTS_CDB[key]}", "obtained", RANKING_ALERT_CDB[key],
-            "reactions."
-        )
-    print()
-    print("----------CDB ALERTS RANKING----------")
-    for key in ALERT_REACTION_CDB:
-        print(
-            f"The home id {key} reacted to the following alerts {ALERT_REACTION_CDB[key]}."
-        )
-        print(
-            f"The home id {key} reacted to {len(ALERT_REACTION_CDB[key])/len(ALERTS_CDB)*100}"
-            + "% of the alerts."
-        )
+            if community == "CDB" and file[:6] in [
+                'CDB002', 'CDB006', 'CDB008', 'CDB009',
+                'CDB011', 'CDB014', 'CDB030', 'CDB033',
+                'CDB036', 'CDB042', 'CDB043'
+            ]:
+                if file[:6] not in previous_file:
+                    previous_file.append(file[:6])
+                    i += 1
+                find_global_reaction_and_report(
+                    df, file, path, ALERTS_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i
+                )
+            elif community == "ECH" and file[:6] in [
+                'ECHL01', 'ECHL05', 'ECHL07',
+                'ECHL08', 'ECHL11', 'ECHL12',
+                'ECHL13', 'ECHL15', 'ECHL16'
+            ]:
+                if file[:6] not in previous_file:
+                    previous_file.append(file[:6])
+                    i += 1
+                find_global_reaction_and_report(
+                    df, file, path, ALERTS_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i
+                )
 
     # Take all home ids
     cdb_home_id = [
