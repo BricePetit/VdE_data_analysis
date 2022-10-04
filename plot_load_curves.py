@@ -3,13 +3,13 @@ __version__ = "1.0.0"
 __author__ = "Brice Petit"
 __license__ = "MIT"
 
-
 from config import (
     COMMUNITY_NAME,
     SEC8
 )
 
 
+import datetime
 import matplotlib.dates as dates
 import matplotlib.pyplot as plt
 import os
@@ -190,7 +190,9 @@ def plot_basic_period(df, path, home_id, starting, ending, fmt='15min'):
     # on the bottom
     idx = pd.DatetimeIndex(week['ts'])
     # Parameter to obtain a large figure
-    plt.rcParams["figure.figsize"] = [9, 9]
+    t1 = datetime.datetime.strptime(starting, '%Y-%m-%d %H:%M:%S')
+    t2 = datetime.datetime.strptime(ending, '%Y-%m-%d %H:%M:%S')
+    plt.rcParams["figure.figsize"] = [9 * ((t1 - t2).days * -1), 9]
     # Create the plot
     fig, axs = plt.subplots(nrows=3, ncols=1)
     for i in range(3):
@@ -198,40 +200,30 @@ def plot_basic_period(df, path, home_id, starting, ending, fmt='15min'):
         ax = axs[i]
         # Create a second axis
         ax2 = ax.twiny()
+        # Parameter to plot hours on the 2e axis
+        ax2.xaxis.set_minor_locator(dates.HourLocator())
+        ax2.xaxis.set_minor_formatter(dates.DateFormatter(''))
+        # Create line separation on the plot
+        ax2.xaxis.grid(True, which="minor")
+        # Parameter to plot the date on the first axis
+        ax.xaxis.set_major_formatter(dates.DateFormatter(''))
         if i == 0:
             # Plot the consumption
             ax.plot(idx, week['p_cons'])
             # Set the title of this graph
             ax.set_title('p_cons')
             # Parameter to plot hours on the 2e axis
-            ax2.xaxis.set_minor_locator(dates.HourLocator())
             ax2.xaxis.set_minor_formatter(dates.DateFormatter('%H'))
-            ax2.xaxis.grid(True, which="minor")
-            # Parameter to plot the date on the first axis
-            ax.xaxis.set_major_formatter(dates.DateFormatter(''))
-
         elif i == 1:
-            # Plot the consumption
+            # Plot the production
             ax.plot(idx, week['p_prod'])
             # Set the title of this graph
             ax.set_title('p_prod')
-            # Parameter to plot hours on the 2e axis
-            ax2.xaxis.set_minor_locator(dates.HourLocator())
-            ax2.xaxis.set_minor_formatter(dates.DateFormatter(''))
-            ax2.xaxis.grid(True, which="minor")
-            # Parameter to plot the date on the first axis
-            ax.xaxis.set_major_formatter(dates.DateFormatter(''))
-
         else:
-            # Plot the consumption
+            # Plot the total power
             ax.plot(idx, week['p_tot'])
             # Set the title of this graph
             ax.set_title('p_tot')
-
-            # Parameter to plot hours on the 2e axis
-            ax2.xaxis.set_minor_locator(dates.HourLocator())
-            ax2.xaxis.set_minor_formatter(dates.DateFormatter(''))
-            ax2.xaxis.grid(True, which="minor")
             # Parameter to plot the date on the first axis
             ax.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b'))
         # Plot a line to distinguish the 0
@@ -250,4 +242,64 @@ def plot_basic_period(df, path, home_id, starting, ending, fmt='15min'):
     if not os.path.exists(path):
         os.makedirs(path)
     fig.savefig(f'{path}/{home_id}_{starting[:-9]}_{ending[:-9]}_{fmt}.png')
+    plt.close()
+
+
+def plot_basic_period_area(df, path, home_id, starting, ending, fmt='15min'):
+    """
+    Plot all curves according to the starting and ending date. Plot also areas
+    between total power curve.
+
+    :param df:          The dataframe.
+    :param path:        The pave to save the plot.
+    :param home_id:     Id of the house in str.
+    :param starting:    The beginning of the date.
+    :param ending:      The end of the date.
+    :param fmt:         Format for indexes. '15min' or '8S'.
+    """
+    # Query data for the period.
+    week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
+    # Create time values according to the format for the plot on the x-axis that is
+    # on the bottom
+    idx = pd.DatetimeIndex(week['ts'])
+    # Parameter to obtain a large figure
+    t1 = datetime.datetime.strptime(starting, '%Y-%m-%d %H:%M:%S')
+    t2 = datetime.datetime.strptime(ending, '%Y-%m-%d %H:%M:%S')
+    plt.rcParams["figure.figsize"] = [9 * ((t1 - t2).days * -1 + 1), 9]
+    # Create the plot
+    fig, ax = plt.subplots()
+    # Create a second axis
+    ax2 = ax.twiny()
+    # Plot values
+    ax.plot(idx, week['p_cons'], color="red")
+    ax.plot(idx, week['p_prod'], color="blue")
+    ax.plot(idx, week['p_tot'], color="gray")
+
+    ax.fill_between(idx, week['p_tot'], where=week['p_tot'] > 0, color="palegreen")
+    ax.fill_between(idx, week['p_tot'], where=week['p_tot'] < 0, color="lightyellow")
+    # Parameter to plot hours on the 2e axis
+    ax2.xaxis.set_minor_locator(dates.HourLocator())
+    ax2.xaxis.set_minor_formatter(dates.DateFormatter('%H'))
+    # Create line separation on the plot
+    ax2.xaxis.grid(True, which="minor")
+    # Parameter to plot the date on the first axis
+    ax.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b'))
+    # Plot a line to distinguish the 0
+    ax.axhline(y=0, color="black", linestyle="--")
+    # Remove useless information on the second axis
+    ax2.set(xticklabels=[])
+    # Set a limit for the second axis based on the first axis
+    ax2.set_xlim(ax.get_xlim())
+    # Set the title of the y-axis
+    ax.set_ylabel('Watt')
+    # Set the position of the 2e axis
+    ax2.xaxis.set_label_position('top')
+    # Create the legend
+    ax.legend(['Consumption', 'Production', 'Total power', 'Withdrawal', 'Feeding-in'])
+    # Plot a title
+    plt.suptitle(f'Home: {home_id}\nPeriod: {starting} - {ending}\n')
+    # Check if the path exists. If it is not the case, we create it
+    if not os.path.exists(path):
+        os.makedirs(path)
+    fig.savefig(f'{path}/{home_id}_{starting[:-9]}_{ending[:-9]}_{fmt}_areas.png')
     plt.close()

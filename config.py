@@ -43,6 +43,9 @@ SEC8 = False
 # True if we want to plot basic information
 BASIC_PLOT = False
 
+# True if you want to plot areas
+AREA_PLOT = False
+
 # True we want to plot the average over the entire community
 AVERAGE_COMMUNITY = False
 

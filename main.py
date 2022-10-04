@@ -9,6 +9,7 @@ import pandas as pd
 from plot_load_curves import (
     plot_average_community,
     plot_basic_period,
+    plot_basic_period_area,
     average_through_community,
     plot_aggregation
 )
@@ -37,6 +38,7 @@ from config import (
     PLOT,
     SEC8,
     BASIC_PLOT,
+    AREA_PLOT,
     AVERAGE_COMMUNITY,
     AVERAGE_COMMUNITIES,
     AGGREGATION,
@@ -172,27 +174,28 @@ def all_plots():
     fmt = '8S' if SEC8 else '15min'
     current_folder = DATASET_FOLDER if SEC8 else RESAMPLED_FOLDER
     # For all communities
-    if BASIC_PLOT:
+    if BASIC_PLOT or AREA_PLOT:
         for community in COMMUNITY_NAME:
             print("--------------Plotting--------------")
             # For all file in the data folder
             for file in os.listdir(current_folder + '/' + community):
                 print("---------------" + file[:6] + "---------------")
                 df = pd.read_csv(current_folder + '/' + community + '/' + file)
-                # Basic plot (15min or 8S (for 8sec))
+                home_id = df.at[0, 'home_id']
+                # Select the correct path according to the format (15min or 8S (for 8sec))
                 if SEC8:
-                    home_id = df['home_id'].iloc[0]
                     path = f"plots/{community}/{home_id}"
+                else:
+                    path = f"plots/{community}/{home_id}"
+                if BASIC_PLOT:
+                    # if int(file[12]) == 5 and int(file[7:11]) == 2022 and not :
                     plot_basic_period(
                         df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt
                     )
-                else:
-                    if int(file[12]) == 5 and int(file[7:11]) == 2022:
-                        home_id = df['home_id'].iloc[0]
-                        path = f"plots/{community}/{home_id}"
-                        plot_basic_period(
-                            df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt
-                        )
+                elif AREA_PLOT:
+                    plot_basic_period_area(
+                        df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt
+                    )
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
@@ -203,6 +206,7 @@ def all_plots():
             "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 11, fmt
         )
 
+    # Plot the average communities together
     if AVERAGE_COMMUNITIES:
         print("--------------Plotting average through communities--------------")
         for nb_selected_house in [5, 10, 15, 20]:
@@ -211,6 +215,7 @@ def all_plots():
                 "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, nb_selected_house, fmt
             )
 
+    # Plot all aggregation
     if AGGREGATION:
         print("--------------Plotting Aggregation--------------")
         plot_aggregation("2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, fmt)
