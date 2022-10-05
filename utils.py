@@ -190,6 +190,13 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
     :param path:        The path to register the excel file.
     """
+    # Week of the day
+    weekday = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    months = [
+        'Janvier', 'Février', 'Mars', 'Avril',
+        'Mai', 'Juin', 'Juillet', 'Aout',
+        'Septembre', 'Octobre', 'Novembre', 'Decembre'
+    ]
     # Create empty list of string
     alerts_name = ["" for _ in range(len(matrix[0]))]
     # Get the number of delta time used for the report
@@ -205,11 +212,20 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
             for m in range(nb_delta_alert):
                 # Write values Aj -12h | Aj -6h | Aj -3h | Aj 3h | Aj 6h | Aj 12h |
                 # Where j is the number of the alert
+                sep = '' if k == -1 else '+'
                 alerts_name[alert_idx + (k * (m + 1))] = (
-                    'A' + str(j + 1) + ' ' + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
+                    'A' + str(j + 1) + sep + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
                 )
-            # Write value Aj
-            alerts_name[alert_idx] = 'A' + str(j + 1)
+            # Write value A
+            str_alert = ""
+            starting_date = datetime.datetime.strptime(alerts[j][0], '%Y-%m-%d %H:%M:%S')
+            ending_date = datetime.datetime.strptime(alerts[j][1], '%Y-%m-%d %H:%M:%S')
+            str_alert += weekday[starting_date.weekday()]
+            str_alert += str(starting_date.day) + ' '
+            str_alert += months[starting_date.month - 1] + ' '
+            str_alert += str(starting_date.hour) + 'h - ' + str(ending_date.hour) + 'h'
+
+            alerts_name[alert_idx] = str_alert
     # Create the dataframe with specific indexes and column name
     df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
     # Create a dataframe with the "Bilan"

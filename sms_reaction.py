@@ -76,8 +76,9 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
                 * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
             )
             # Compute the sum
+            delta = (ending_alert - starting_alert).total_seconds() / 3600
             if sum_alert > 0 and sum_not_alert > 0:
-                sum_alerts[alert_idx] += (sum_alert - sum_not_alert) / 1000
+                sum_alerts[alert_idx] += (((sum_alert - sum_not_alert) / 1000) / delta)
 
             # Find report
             find_report(df, alerts, months_home,  matrix, sum_alerts, index, i)
@@ -214,7 +215,7 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
             mean_alert = alert_df.mean()
             # Compute global mean
             global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
-            # Compute mean without the alert periode
+            # Compute mean without the alert period
             mean_not_alert = sum_not_alert / nb_elem
             # Register the percentage of reduction
             matrix[index_i][alert_idx + (i * (j + 1))] = (
@@ -222,5 +223,8 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
                 * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
             )
             # Register the total sum of energy consumption in kWh
+            delta = (ending_alert - starting_alert).total_seconds() / 3600
             if sum_alert > 0 and sum_not_alert > 0:
-                sum_alerts[alert_idx + (i * (j + 1))] += (sum_alert - sum_not_alert) / 1000
+                sum_alerts[alert_idx + (i * (j + 1))] += (
+                    ((sum_alert - sum_not_alert) / 1000) / delta
+                )

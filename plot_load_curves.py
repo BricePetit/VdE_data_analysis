@@ -211,19 +211,19 @@ def plot_basic_period(df, path, home_id, starting, ending, fmt='15min'):
             # Plot the consumption
             ax.plot(idx, week['p_cons'])
             # Set the title of this graph
-            ax.set_title('p_cons')
+            ax.set_title('Consumption power')
             # Parameter to plot hours on the 2e axis
             ax2.xaxis.set_minor_formatter(dates.DateFormatter('%H'))
         elif i == 1:
             # Plot the production
             ax.plot(idx, week['p_prod'])
             # Set the title of this graph
-            ax.set_title('p_prod')
+            ax.set_title('Production power')
         else:
             # Plot the total power
             ax.plot(idx, week['p_tot'])
             # Set the title of this graph
-            ax.set_title('p_tot')
+            ax.set_title('Total power')
             # Parameter to plot the date on the first axis
             ax.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b'))
         # Plot a line to distinguish the 0
