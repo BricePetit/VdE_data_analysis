@@ -58,9 +58,6 @@ AGGREGATION = False
 # True if we want to verify reactions
 REACTION = True
 
-# True if we want to find the reaction to the sms
-GLOBAL_REACTION = True
-
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]
 

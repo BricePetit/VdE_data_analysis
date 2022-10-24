@@ -33,7 +33,6 @@ from config import (
     INCONSISTENCY,
     # Constants for reactions of messages
     REACTION,
-    GLOBAL_REACTION,
     # Constants for the plotting
     PLOT,
     SEC8,
@@ -66,7 +65,7 @@ def manage_data():
     for community in COMMUNITY_NAME:
         print("---------------Managing Data---------------")
         # For all file in the data folder
-        for file in os.listdir(DATASET_FOLDER + '/' + community):
+        for file in sorted(os.listdir(DATASET_FOLDER + '/' + community)):
             print("---------------" + file[:6] + "---------------")
             df = pd.read_csv(DATASET_FOLDER + '/' + community + '/' + file)
 
@@ -93,7 +92,7 @@ def compute_alert_reaction():
         # For all file in the data folder
         i = -1
         previous_file = []
-        for file in os.listdir(path):
+        for file in sorted(os.listdir(path)):
             print("---------------" + file[:6] + "---------------")
             df = pd.read_csv(path + '/' + file)
             # Find if a house reacted to the message
@@ -129,8 +128,8 @@ def compute_alert_reaction():
         'ECHL01', 'ECHL05', 'ECHL07', 'ECHL08', 'ECHL11',
         'ECHL12', 'ECHL13', 'ECHL15', 'ECHL16'
     ]
-    # cdb_home_id = [f[:6] for f in os.listdir(DATASET_FOLDER + '/CDB')]
-    # ech_home_id = [f[:6] for f in os.listdir(DATASET_FOLDER + '/ECH')]
+    # cdb_home_id = [f[:6] for f in sorted(os.listdir(DATASET_FOLDER + '/CDB'))]
+    # ech_home_id = [f[:6] for f in sorted(os.listdir(DATASET_FOLDER + '/ECH'))]
 
     # Export MATRIX_ALERTS_CDB or MATRIX_ALERTS_ECH in excel files
     export_to_XLSX(
@@ -153,7 +152,7 @@ def all_plots():
         for community in COMMUNITY_NAME:
             print("--------------Plotting--------------")
             # For all file in the data folder
-            for file in os.listdir(current_folder + '/' + community):
+            for file in sorted(os.listdir(current_folder + '/' + community)):
                 print("---------------" + file[:6] + "---------------")
                 df = pd.read_csv(current_folder + '/' + community + '/' + file)
                 home_id = df.at[0, 'home_id']
@@ -219,3 +218,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # check_data()
