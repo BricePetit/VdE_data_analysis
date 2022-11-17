@@ -5,13 +5,13 @@ __license__ = "MIT"
 
 import os
 import pandas as pd
+import datetime as dt
 
 from plot_load_curves import (
     plot_average_community,
-    plot_basic_period,
-    plot_basic_period_area,
     average_through_community,
-    plot_aggregation
+    plot_aggregation,
+    plot_data
 )
 from sms_reaction import find_global_reaction_and_report
 from utils import (
@@ -20,6 +20,9 @@ from utils import (
 
 # Import constants for the configuration of the execution
 from config import (
+    LOCAL_TZ,
+    FLUKSO,
+    RTU,
     # Constants for path
     DATASET_FOLDER,
     RESAMPLED_FOLDER,
@@ -30,6 +33,7 @@ from config import (
     VERIFY_CONSUMPTION,
     CONVERT_UTC_CET,
     RESAMPLE,
+    RESAMPLE_RTU,
     INCONSISTENCY,
     # Constants for reactions of messages
     REACTION,
@@ -57,7 +61,7 @@ from config import (
 # ----------------------------- #
 
 
-def manage_data():
+def manage_flukso_data():
     """
     Function to manage data.
     """
@@ -79,21 +83,38 @@ def manage_data():
 
             # Run the resample function according to Resample boolean value
             if RESAMPLE:
-                resample_dataset(file, df)
+                # (df, path, columns)
+                columns = ['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot']
+                resample_dataset(df, RESAMPLED_FOLDER + '/' + file[:3], file[:-4], columns)
+
+
+def manage_rtu_data():
+    """
+    Manage rtu data.
+    """
+    # Resample rtu data
+    if RESAMPLE_RTU:
+        df = pd.read_csv('dataset/RTU/rtu.csv')
+        columns = [
+            'ip', 'day', 'ts', 'active',
+            'apparent', 'cos_phi', 'reactive',
+            'tension1_2', 'tension2_3', 'tension3_1'
+        ]
+        resample_dataset(df, RESAMPLED_FOLDER + '/RTU', 'rtu', columns)
 
 
 def compute_alert_reaction():
     """
     Function for reactions.
     """
-    for community in COMMUNITY_NAME:
+    for community in ['ECH']:
         print("--------------Computing Alerts--------------")
         path = RESAMPLED_FOLDER + '/' + community
         # For all file in the data folder
         i = -1
         previous_file = []
         for file in sorted(os.listdir(path)):
-            print("---------------" + file[:6] + "---------------")
+            print(f"---------------{file[:6]} {file[7:14]} ---------------")
             df = pd.read_csv(path + '/' + file)
             # Find if a house reacted to the message
             if community == "CDB" and file[:6] in [
@@ -140,9 +161,43 @@ def compute_alert_reaction():
     )
 
 
-def all_plots():
+def plot_average(current_folder, fmt):
     """
-    Function to plot.
+    Plot average.
+
+    :param current_folder:  Current folder where we are working (dataset or resample_dataset).
+    :param fmt:             Data format.
+    """
+    starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
+    ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
+    # Plot an average for a given date for a community
+    if AVERAGE_COMMUNITY:
+        print("--------------Plotting average--------------")
+        plot_average_community(
+            starting, ending, current_folder, 5, fmt
+        )
+        plot_average_community(
+            starting, ending, current_folder, 11, fmt
+        )
+
+    # Plot the average communities together
+    if AVERAGE_COMMUNITIES:
+        print("--------------Plotting average through communities--------------")
+        for nb_selected_house in [5, 10, 15, 20]:
+            print(f"--------------{nb_selected_house} selected houses--------------")
+            average_through_community(
+                starting, ending, current_folder, nb_selected_house, fmt
+            )
+
+    # Plot all aggregation
+    if AGGREGATION:
+        print("--------------Plotting Aggregation--------------")
+        plot_aggregation(starting, ending, current_folder, fmt)
+
+
+def plot_flukso():
+    """
+    Function to plot flukso data.
     """
     # Choose the format
     fmt = '8S' if SEC8 else '15min'
@@ -161,38 +216,40 @@ def all_plots():
                     path = f"plots/{community}/{home_id}"
                 else:
                     path = f"plots/{community}/{home_id}"
+                starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
+                ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
                 if BASIC_PLOT:
                     # if int(file[12]) == 5 and int(file[7:11]) == 2022 and not :
-                    plot_basic_period(
-                        df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt
+                    plot_data(
+                        df, path, starting, ending,
+                        f'Home: {home_id}', 'multiple_flukso', fmt
                     )
                 elif AREA_PLOT:
-                    plot_basic_period_area(
-                        df, path, home_id, "2022-05-24 00:00:00", "2022-05-24 23:59:52", fmt
+                    plot_data(
+                        df, path, starting, ending,
+                        f'Home: {home_id}', 'flukso', fmt
                     )
-    # Plot an average for a given date for a community
-    if AVERAGE_COMMUNITY:
-        print("--------------Plotting average--------------")
-        plot_average_community(
-            "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 5, fmt
-        )
-        plot_average_community(
-            "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, 11, fmt
-        )
+    plot_average(current_folder, fmt)
 
-    # Plot the average communities together
-    if AVERAGE_COMMUNITIES:
-        print("--------------Plotting average through communities--------------")
-        for nb_selected_house in [5, 10, 15, 20]:
-            print(f"--------------{nb_selected_house} selected houses--------------")
-            average_through_community(
-                "2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, nb_selected_house, fmt
-            )
 
-    # Plot all aggregation
-    if AGGREGATION:
-        print("--------------Plotting Aggregation--------------")
-        plot_aggregation("2022-05-24 00:00:00", "2022-05-24 23:59:52", current_folder, fmt)
+def plot_rtu():
+    """
+    Function to plot rtu data.
+    """
+    df = pd.read_csv(RESAMPLED_FOLDER + '/RTU/rtu_2022-11_15min.csv')
+    starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
+    ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
+    plot_data(df, 'plots/RTU', starting, ending, 'Cabine basse tension', 'rtu')
+
+
+def all_plots():
+    """
+    Function to plot all data.
+    """
+    if FLUKSO:
+        plot_flukso()
+    if RTU:
+        plot_rtu()
 
 
 def main():
@@ -201,7 +258,11 @@ def main():
     """
     # Manage the data (e.g. resample, etc.)
     if MANAGE_DATA:
-        manage_data()
+        if FLUKSO:
+            manage_flukso_data()
+
+        if RTU:
+            manage_rtu_data()
 
     # Check the inconsistency in data
     if INCONSISTENCY:
@@ -218,4 +279,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # check_data()

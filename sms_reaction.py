@@ -5,13 +5,14 @@ __license__ = "MIT"
 
 
 from config import (
+    LOCAL_TZ,
     RESAMPLED_FOLDER,
     REPORTS_HOURS
 )
 
 
 import copy
-import datetime
+import datetime as dt
 import os
 import pandas as pd
 
@@ -34,10 +35,10 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
     :param index:       Index of the home id.
     """
     for i in range(len(alerts)):
-        starting_alert = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
-        ending_alert = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
+        starting_alert = dt.datetime.fromisoformat(alerts[i][0]).replace(tzinfo=LOCAL_TZ)
+        ending_alert = dt.datetime.fromisoformat(alerts[i][1]).replace(tzinfo=LOCAL_TZ)
         if (int(file_name[7:11]) == starting_alert.year
-                and int(file_name[12]) == starting_alert.month):
+                and int(file_name[12:14]) == starting_alert.month):
             nb_elem = 0
             mean_not_alert = 0
             sum_not_alert = 0
@@ -49,7 +50,7 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
             # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
             alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
             # We recover all month for the current home
-            for file2 in os.listdir(path):
+            for file2 in sorted(os.listdir(path)):
                 if file_name != file2:
                     if file_name[:6] == file2[:6]:
                         months_home.append(file2)
@@ -71,6 +72,7 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
                 mean_alert = alert_df.mean()
                 # Combined mean
                 global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
+                nb_elem = 1 if nb_elem == 0 else nb_elem
                 mean_not_alert = sum_not_alert / nb_elem
                 # Compute the percentage
                 matrix[index][alert_idx] = (
@@ -89,15 +91,49 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
                 find_report(df, alerts, months_home,  matrix, sum_alerts, index, i)
 
 
+def non_contiguous_data(months_home, current_period, sign):
+    """
+    Temp function to find the following home where dates are not contiguous.
+
+    :param months_home:     List of months for a home_id.
+    :param current_period:  Current period
+    :param sign:            The sign used for the delta. -1 if we need to check
+                            before the current date, 1 otherwise.
+
+    :return:                find, file_name, current_period
+    """
+    find = False
+    file_name = ""
+    if sign == -1:
+        if int(current_period.month) == 10:
+            for i in range(len(months_home)):
+                if months_home[i][12:14] == "08":
+                    current_period += dt.timedelta(days=7 * 10 * sign)
+                    find = True
+                    file_name = months_home[i]
+                    del months_home[i]
+                    break
+    elif sign == 1:
+        if int(current_period.month) == 9:
+            for i in range(len(months_home)):
+                if months_home[i][12:14] == "11":
+                    current_period += dt.timedelta(days=7 * 10 * sign)
+                    find = True
+                    file_name = months_home[i]
+                    del months_home[i]
+                    break
+    return find, file_name, current_period
+
+
 def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_alert, ending_alert):
     """
     This function will compute the mean before or after the alert according to the sign
 
-    :param df:              Dataframe
-    :param months_home:     List of months for a home_id
+    :param df:              Dataframe.
+    :param months_home:     List of months for a home_id.
     :param sign:            The sign used for the delta. -1 if we need to check
-                            before the current date, 1 otherwise
-    :param alerts:          All alerts
+                            before the current date, 1 otherwise.
+    :param alerts:          All alerts.
     :param starting_alert:  The beginning of the alert.
     :param ending_alert:    The end of the alert.
 
@@ -106,7 +142,7 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
     current_period = starting_alert
     # The time between the beginning of the alert and the end of the alert
     delta_alert = ending_alert - starting_alert
-    delta = datetime.timedelta(days=7 * sign)
+    delta = dt.timedelta(days=7 * sign)
     sum_period = 0
     count = 0
     tmp_df = df
@@ -115,8 +151,8 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
         # Check if the date is not an alert.
         is_alert = False
         for i in range(len(alerts)):
-            start = datetime.datetime.strptime(alerts[i][0], '%Y-%m-%d %H:%M:%S')
-            end = datetime.datetime.strptime(alerts[i][1], '%Y-%m-%d %H:%M:%S')
+            start = dt.datetime.fromisoformat(alerts[i][0]).replace(tzinfo=LOCAL_TZ)
+            end = dt.datetime.fromisoformat(alerts[i][1]).replace(tzinfo=LOCAL_TZ)
             if ((start <= current_period and current_period <= end)
                     and (starting_alert <= current_period and current_period <= ending_alert)):
                 is_alert = True
@@ -137,9 +173,10 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
                     sum_period += tmp_sum
                     count += len(tmp_p_cons.index)
         # should be >= now
-        if current_period + delta >= datetime.datetime.strptime("2022-08-12 15:45:00", '%Y-%m-%d %H:%M:%S'):
+        if current_period + delta >= dt.datetime.now(LOCAL_TZ):
             break
         else:
+            print(current_period)
             current_period += delta
             # check if the month is different
             if current_period.month != (current_period - delta).month:
@@ -149,14 +186,18 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
                 for i in range(len(months_home)):
                     # Check if years are equal and check if months are equals,
                     # case where the month is one or two digit(s)
-                    if ((int(months_home[i][7:11]) == int(current_period.year))
+                    if (
+                        (int(months_home[i][7:11]) == int(current_period.year))
                         and
-                        (int(months_home[i][12]) == int(current_period.month)
-                            or months_home[i][12:14] == str(current_period.month))):
+                        (months_home[i][12:14] == str(current_period.month))
+                    ):
                         find = True
                         file_name = months_home[i]
                         del months_home[i]
                         break
+                find, file_name, current_period = non_contiguous_data(
+                    months_home, current_period, sign
+                )
                 # If it is the case, we continue
                 if find:
                     tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
@@ -193,14 +234,19 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
             # Convert ts string into datetime
             if i == -1:
                 starting_alert = (
-                    datetime.datetime.strptime(alerts[index_j][0], '%Y-%m-%d %H:%M:%S')
+                    dt.datetime.fromisoformat(alerts[index_j][0]).replace(tzinfo=LOCAL_TZ)
                     + (-1 * REPORTS_HOURS[j])
                 )
-                ending_alert = datetime.datetime.strptime(alerts[index_j][1], '%Y-%m-%d %H:%M:%S')
-            else:
-                starting_alert = datetime.datetime.strptime(alerts[index_j][0], '%Y-%m-%d %H:%M:%S')
+
                 ending_alert = (
-                    datetime.datetime.strptime(alerts[index_j][1], '%Y-%m-%d %H:%M:%S')
+                    dt.datetime.fromisoformat(alerts[index_j][1]).replace(tzinfo=LOCAL_TZ)
+                )
+            else:
+                starting_alert = (
+                    dt.datetime.fromisoformat(alerts[index_j][0]).replace(tzinfo=LOCAL_TZ)
+                )
+                ending_alert = (
+                    dt.datetime.fromisoformat(alerts[index_j][1]).replace(tzinfo=LOCAL_TZ)
                     + (REPORTS_HOURS[j])
                 )
             # Compute the mean before and after the period of the alert
@@ -222,9 +268,11 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
             )['p_cons']
             sum_alert = alert_df.sum()
             mean_alert = alert_df.mean()
+
             # Compute global mean
             global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
             # Compute mean without the alert period
+            nb_elem = 1 if nb_elem == 0 else nb_elem
             mean_not_alert = sum_not_alert / nb_elem
             # Register the percentage of reduction
             matrix[index_i][alert_idx + (i * (j + 1))] = (
@@ -260,10 +308,10 @@ def check_data():
     # ECHL05 : 4 mai 2022
     df = pd.read_csv('resampled_data/ECH/ECHL05_2022_5_15min.csv')
     dates = [
-        [datetime.datetime(2022, 5, 4, 14, 00, 00), datetime.datetime(2022, 5, 4, 17, 00, 00)],
-        [datetime.datetime(2022, 5, 11, 14, 00, 00), datetime.datetime(2022, 5, 11, 17, 00, 00)],
-        [datetime.datetime(2022, 5, 18, 14, 00, 00), datetime.datetime(2022, 5, 18, 17, 00, 00)],
-        [datetime.datetime(2022, 5, 25, 14, 00, 00), datetime.datetime(2022, 5, 25, 17, 00, 00)]
+        [dt.datetime(2022, 5, 4, 14, 00, 00), dt.datetime(2022, 5, 4, 17, 00, 00)],
+        [dt.datetime(2022, 5, 11, 14, 00, 00), dt.datetime(2022, 5, 11, 17, 00, 00)],
+        [dt.datetime(2022, 5, 18, 14, 00, 00), dt.datetime(2022, 5, 18, 17, 00, 00)],
+        [dt.datetime(2022, 5, 25, 14, 00, 00), dt.datetime(2022, 5, 25, 17, 00, 00)]
     ]
     tot_sum = 0
     for j in range(len(dates)):

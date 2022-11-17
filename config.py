@@ -4,7 +4,7 @@ __author__ = "Brice Petit"
 __license__ = "MIT"
 
 
-import datetime
+import datetime as dt
 import numpy as np
 
 
@@ -12,6 +12,14 @@ import numpy as np
 # ----------GLOBAL VARIABLES---------- #
 # ------------------------------------ #
 
+# Get the local timezone
+LOCAL_TZ = dt.datetime.now().astimezone().tzinfo
+
+# True if we want to manage flukso data
+FLUKSO = True
+
+# True if we want to manage RTU data
+RTU = False
 
 # Name of the folder where the dataset is located
 DATASET_FOLDER = 'dataset'
@@ -30,6 +38,9 @@ CONVERT_UTC_CET = False
 
 # True if we want to resample the dataset
 RESAMPLE = False
+
+# True if we want to resample the dataset
+RESAMPLE_RTU = False
 
 # True if you want to check the inconsistencies
 INCONSISTENCY = False
@@ -83,8 +94,16 @@ ALERTS_ECH = [
     ["2022-06-21 17:00:00", "2022-06-21 20:00:00"],
     ["2022-07-12 16:00:00", "2022-07-12 22:00:00"],
     ["2022-07-18 14:00:00", "2022-07-18 20:00:00"],
-    ["2022-08-05 15:00:00", "2022-08-05 21:00:00"]
-    # ["2022-08-21 15:00:00", "2022-08-21 21:00:00"]
+    ["2022-08-05 15:00:00", "2022-08-05 21:00:00"],
+    ["2022-08-21 15:00:00", "2022-08-21 21:00:00"],
+    ["2022-09-01 06:00:00", "2022-09-01 12:00:00"],
+    ["2022-09-24 10:00:00", "2022-09-24 16:00:00"],
+    ["2022-10-09 12:00:00", "2022-10-09 18:00:00"],
+    ["2022-10-19 17:00:00", "2022-10-19 23:00:00"],
+    ["2022-11-05 16:00:00", "2022-11-05 22:00:00"],
+    ["2022-11-15 17:00:00", "2022-11-15 23:00:00"]
+    # ["2022-12-04 12:00:00", "2022-12-04 18:00:00"],
+    # ["2022-12-19 16:00:00", "2022-12-19 22:00:00"],
 ]
 
 # Dictionaries containing if a participant respected the restriction period from a global
@@ -95,8 +114,8 @@ GLOBAL_MEDIAN = {}
 # Compute the number of hours in the alert period
 HOURS_ALERT_PERIOD = 0
 for msg in ALERTS_CDB:
-    lower_bound = datetime.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-    upper_bound = datetime.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
+    lower_bound = dt.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
+    upper_bound = dt.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
     if HOURS_ALERT_PERIOD < int(((upper_bound - lower_bound).total_seconds()) / 3600):
         HOURS_ALERT_PERIOD = int(((upper_bound - lower_bound).total_seconds()) / 3600)
 
@@ -111,7 +130,7 @@ ALERT_REACTION_ECH = {}
 
 # Hours to analyze
 REPORTS_HOURS = [
-    datetime.timedelta(hours=3), datetime.timedelta(hours=6), datetime.timedelta(hours=12)
+    dt.timedelta(hours=3), dt.timedelta(hours=6), dt.timedelta(hours=12)
 ]
 
 # Matrix containing
