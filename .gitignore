@@ -1,5 +1,4 @@
 dataset/
 resampled_data/
-.vscode/
 .DS_Store
 __pycache__/
