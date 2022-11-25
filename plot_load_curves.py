@@ -4,7 +4,6 @@ __author__ = "Brice Petit"
 __license__ = "MIT"
 
 from config import (
-    LOCAL_TZ,
     COMMUNITY_NAME,
     SEC8
 )
@@ -183,20 +182,19 @@ def flukso_basic_plot(idx, week, ax, i=None):
     :param ax:      1er axis.
     :param i=None:  Optional parameter used in the case where we want to plot 3 subplots.
     """
-    # Plot a line to distinguish the 0
-    ax.axhline(y=0, color="black", linestyle="--")
     # Plot the classical way
     if i is None:
-        ax.plot(idx, week['p_tot'], color="gray")
-        ax.plot(idx, week['p_cons'], color="red")
-        ax.plot(idx, week['p_prod'], color="blue")
+        ax.plot(idx, week['p_tot'], color="gray", label='Total power')
+        ax.plot(idx, week['p_cons'], color="red", label='Consumption')
+        ax.plot(idx, week['p_prod'], color="blue", label='Production')
         # Fill areas
-        ax.fill_between(idx, week['p_tot'], where=week['p_tot'] > 0, color="lightyellow")
-        ax.fill_between(idx, week['p_tot'], where=week['p_tot'] < 0, color="palegreen")
-        # Create the legend
-        ax.legend(
-            ['Consumption', 'Production', 'Total power', 'Withdrawal', 'Feeding-in'],
-            bbox_to_anchor=[0.5, 1]
+        ax.fill_between(
+            idx, week['p_tot'], where=week['p_tot'] > 0,
+            color="lightyellow", label='Withdrawal'
+        )
+        ax.fill_between(
+            idx, week['p_tot'], where=week['p_tot'] < 0,
+            color="palegreen", label='Feeding-in'
         )
     # Plot consumption, production & total in subplot
     else:
@@ -218,6 +216,10 @@ def flukso_basic_plot(idx, week, ax, i=None):
             ax.plot(idx, week['p_tot'])
             # Set the title of this graph
             ax.set_title('Total power')
+    # Plot a line to distinguish the 0
+    ax.axhline(y=0, color="black", linestyle="--")
+    # Show the legend
+    ax.legend()
 
 
 def rtu_basic_plot(idx, week, ax):
@@ -229,48 +231,52 @@ def rtu_basic_plot(idx, week, ax):
     :param ax:      1er axis.
     """
     # Plot values
-    ax.plot(idx, week['active'], color="red")
+    ax.plot(idx, week['active'], color="red", label='Active power')
     # Fill areas
-    ax.fill_between(idx, week['active'], where=week['active'] > 0, color="lightyellow")
-    # Create the legend
-    ax.legend(['Active power', 'Withdrawal'], bbox_to_anchor=[0.5, 1])
+    ax.fill_between(
+        idx, week['active'], where=week['active'] > 0,
+        color="lightyellow", label='Withdrawal'
+    )
+    # Show the legend
+    ax.legend()
 
 
-def plot_formatter(ax, ax2, i=None):
+def plot_formatter(ax, ax2, tz, i=None):
     """
     Function to format the two axis on the graph.
 
     :param ax:      1er axis.
     :param ax2:     2e axis.
+    :param tz:      Timezone.
     :param i=None:  Optional parameter used in the case where we want to plot 3 subplots.
     """
     # Create line separation on the plot
-    ax.xaxis.grid(True, which="both")
+    ax.xaxis.grid(True, which="major")
     # Parameter to plot hours on the first axis
-    ax.xaxis.set_minor_locator(dates.HourLocator(tz=LOCAL_TZ))
+    ax.xaxis.set_major_locator(dates.HourLocator(tz=tz))
     # Parameter to plot days on the 2e axis
-    ax2.xaxis.set_major_locator(dates.DayLocator(tz=LOCAL_TZ))
+    ax2.xaxis.set_major_locator(dates.DayLocator(tz=tz))
     if i is None:
         # Parameter to plot hours on the first axis
-        ax.xaxis.set_minor_formatter(dates.DateFormatter('%H', tz=LOCAL_TZ))
+        ax.xaxis.set_major_formatter(dates.DateFormatter('%H', tz=tz))
         # Parameter to plot days on the 2e axis
-        ax2.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b', tz=LOCAL_TZ))
+        ax2.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b', tz=tz))
         # Set the position of the 2e axis
         ax2.xaxis.set_label_position('top')
     else:
-        ax.xaxis.set_minor_formatter(dates.DateFormatter('', tz=LOCAL_TZ))
+        ax.xaxis.set_major_formatter(dates.DateFormatter('', tz=tz))
         # Parameter to plot the date on the first axis
-        ax2.xaxis.set_major_formatter(dates.DateFormatter('', tz=LOCAL_TZ))
+        ax2.xaxis.set_major_formatter(dates.DateFormatter('', tz=tz))
         # Formatter for the plot the consumption, we put time
         if i == 0:
             # Parameter to plot the date on the first axis
-            ax2.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b', tz=LOCAL_TZ))
+            ax2.xaxis.set_major_formatter(dates.DateFormatter('%d\n%b', tz=tz))
             # Set the position of the 2e axis
             ax2.xaxis.set_label_position('top')
         # Formatter for the plot the consumption, we put days
         elif i == 2:
             # Parameter to plot hours on the 1er axis
-            ax.xaxis.set_minor_formatter(dates.DateFormatter('%H', tz=LOCAL_TZ))
+            ax.xaxis.set_major_formatter(dates.DateFormatter('%H', tz=tz))
 
 
 def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
@@ -283,8 +289,11 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
     :param home_id:     Id of the house in str.
     :param starting:    The beginning of the date.
     :param ending:      The end of the date.
+    :param title:       Title of the fig.
+    :param plot_type:   Type of the plot.
     :param fmt=15min:   Format for indexes. '15min' or '8S'.
     """
+    tz = starting.tzinfo
     str_starting = starting.isoformat(sep=" ")
     str_ending = ending.isoformat(sep=" ")
     # Query data for the period.
@@ -308,9 +317,7 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
             # Plot data
             flukso_basic_plot(idx, week, ax, i)
             # Format axis
-            plot_formatter(ax, ax2, i)
-            # Remove useless information on the second axis
-            ax.set(xticklabels=[])
+            plot_formatter(ax, ax2, tz, i)
             # Set a limit for the second axis based on the first axis
             ax2.set_xlim(ax.get_xlim())
     else:
@@ -325,20 +332,20 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
             # Plot flukso data
             flukso_basic_plot(idx, week, ax)
         # Format axis
-        plot_formatter(ax, ax2)
-        # Remove useless information on the second axis
-        ax.set(xticklabels=[])
+        plot_formatter(ax, ax2, tz)
         # Set a limit for the second axis based on the first axis
         ax2.set_xlim(ax.get_xlim())
-    # Set the title of the y-axis
-    ax.set_ylabel('Watt')
+    # Set the title of the x/y-axis
+    ax.set_xlabel('Time (Hour)')
+    ax.set_ylabel('Power (Watt)')
     # Plot a title
     plt.suptitle(title + f"\nPeriod: {starting} - {ending}\n")
     # Check if the path exists. If it is not the case, we create it
     if not os.path.exists(path):
         os.makedirs(path)
+    # Save the fig
     fig.savefig(
-        f"{path}/{plot_type}_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
+        f"{path}/{df.at[0, 'home_id']}_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
     )
     plt.close()
 

@@ -6,17 +6,15 @@ __license__ = "MIT"
 
 import datetime as dt
 import numpy as np
+import pandas as pd
 
 
 # ------------------------------------ #
 # ----------GLOBAL VARIABLES---------- #
 # ------------------------------------ #
 
-# Get the local timezone
-LOCAL_TZ = dt.datetime.now().astimezone().tzinfo
-
 # True if we want to manage flukso data
-FLUKSO = True
+FLUKSO = False
 
 # True if we want to manage RTU data
 RTU = False
@@ -33,17 +31,11 @@ MANAGE_DATA = False
 # True if we want to verify if there are negative consumptions
 VERIFY_CONSUMPTION = False
 
-# True if we want to convert UTC to CET (time)
-CONVERT_UTC_CET = False
-
 # True if we want to resample the dataset
 RESAMPLE = False
 
 # True if we want to resample the dataset
 RESAMPLE_RTU = False
-
-# True if you want to check the inconsistencies
-INCONSISTENCY = False
 
 # Set to True if you want to enter in the function to plot
 PLOT = False
@@ -67,66 +59,24 @@ AVERAGE_COMMUNITIES = False
 AGGREGATION = False
 
 # True if we want to verify reactions
-REACTION = True
+REACTION = False
 
 # Name of communities
 COMMUNITY_NAME = ["CDB", "ECH"]
 
+tmp_alert_df = pd.read_excel("final_planning.xlsx")
+
 # List of period where the consumer need to reduce the consumption for CDB
-ALERTS_CDB = [
-    ["2022-04-28 19:00:00", "2022-04-28 21:00:00"],
-    ["2022-05-04 14:00:00", "2022-05-04 16:00:00"],
-    ["2022-05-15 17:00:00", "2022-05-15 19:00:00"],
-    ["2022-06-03 18:00:00", "2022-06-03 20:00:00"],
-    ["2022-06-11 11:00:00", "2022-06-11 13:00:00"],
-    ["2022-06-23 15:00:00", "2022-06-23 17:00:00"],
-    ["2022-07-12 18:00:00", "2022-07-12 21:00:00"],
-    ["2022-07-20 18:00:00", "2022-07-20 21:00:00"],
-    ["2022-08-02 18:00:00", "2022-08-02 21:00:00"]
-    # ["2022-08-19 18:00:00", "2022-08-19 21:00:00"]
-]
+ALERTS_CDB = (
+    tmp_alert_df[tmp_alert_df["Echappée/Coin du Balai"] == "Coin du Balai"]
+    .reset_index(drop=True)
+)
 
 # List of period where the consumer need to reduce the consumption for échappée
-ALERTS_ECH = [
-    ["2022-05-05 18:00:00", "2022-05-05 21:00:00"],
-    ["2022-05-21 11:00:00", "2022-05-21 14:00:00"],
-    ["2022-06-05 10:00:00", "2022-06-05 13:00:00"],
-    ["2022-06-21 17:00:00", "2022-06-21 20:00:00"],
-    ["2022-07-12 16:00:00", "2022-07-12 22:00:00"],
-    ["2022-07-18 14:00:00", "2022-07-18 20:00:00"],
-    ["2022-08-05 15:00:00", "2022-08-05 21:00:00"],
-    ["2022-08-21 15:00:00", "2022-08-21 21:00:00"],
-    ["2022-09-01 06:00:00", "2022-09-01 12:00:00"],
-    ["2022-09-24 10:00:00", "2022-09-24 16:00:00"],
-    ["2022-10-09 12:00:00", "2022-10-09 18:00:00"],
-    ["2022-10-19 17:00:00", "2022-10-19 23:00:00"],
-    ["2022-11-05 16:00:00", "2022-11-05 22:00:00"],
-    ["2022-11-15 17:00:00", "2022-11-15 23:00:00"]
-    # ["2022-12-04 12:00:00", "2022-12-04 18:00:00"],
-    # ["2022-12-19 16:00:00", "2022-12-19 22:00:00"],
-]
-
-# Dictionaries containing if a participant respected the restriction period from a global
-# point of view
-GLOBAL_MEAN = {}
-GLOBAL_MEDIAN = {}
-
-# Compute the number of hours in the alert period
-HOURS_ALERT_PERIOD = 0
-for msg in ALERTS_CDB:
-    lower_bound = dt.datetime.strptime(msg[0], '%Y-%m-%d %H:%M:%S')
-    upper_bound = dt.datetime.strptime(msg[1], '%Y-%m-%d %H:%M:%S')
-    if HOURS_ALERT_PERIOD < int(((upper_bound - lower_bound).total_seconds()) / 3600):
-        HOURS_ALERT_PERIOD = int(((upper_bound - lower_bound).total_seconds()) / 3600)
-
-# Dictionaries containing if a participant respected the restriction period from hours
-# point of view
-HOURS_MEAN_CDB = {}
-HOURS_MEAN_ECHAP = {}
-
-# Dictionary of all houses and the index of the alert
-ALERT_REACTION_CDB = {}
-ALERT_REACTION_ECH = {}
+ALERTS_ECH = (
+    tmp_alert_df[tmp_alert_df["Echappée/Coin du Balai"] == "Echappée"]
+    .reset_index(drop=True)
+)
 
 # Hours to analyze
 REPORTS_HOURS = [

@@ -8,10 +8,10 @@ import datetime as dt
 import numpy as np
 import os
 import pandas as pd
+import pytz
 
 
 from config import (
-    LOCAL_TZ,
     FLUKSO,
     RTU,
     REPORTS_HOURS
@@ -41,7 +41,8 @@ def convert_utc_to_local_tz(series):
 
     :return:    Return a series with the local timezone.
     """
-    return pd.to_datetime(series, utc=True).dt.round(freq='s').dt.tz_convert(LOCAL_TZ)
+    tz = pytz.timezone('Europe/Brussels')
+    return pd.to_datetime(series, utc=True).dt.round(freq='s').dt.tz_convert(tz)
 
 
 def adjust_timestamp(initial_ts):
@@ -171,7 +172,7 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
 
     :param matrix:      Matrix containing the results of alerts.
     :param home_ids:    The id of each home.
-    :param alerts:      Period of alerts.
+    :param alerts:      Dataframe with alerts.
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
     :param file_name:   Filename.
     """
@@ -203,8 +204,12 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
                 )
             # Write value A
             str_alert = ""
-            starting_date = dt.datetime.fromisoformat(alerts[j][0]).replace(tzinfo=LOCAL_TZ)
-            ending_date = dt.datetime.fromisoformat(alerts[j][1]).replace(tzinfo=LOCAL_TZ)
+            starting_date = (
+                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[j][1])).astimezone()
+            )
+            ending_date = (
+                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[j][2])).astimezone()
+            )
             str_alert += weekday[starting_date.weekday()]
             str_alert += str(starting_date.day) + ' '
             str_alert += months[starting_date.month - 1] + ' '
@@ -217,6 +222,6 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en kWh"], columns=alerts_name)
     # Concatenate the two dataframes
     df = pd.concat([df, tmp_df])
-    print(df)
     # Write the dataframe into an xlsx file
     df.to_excel(excel_writer=file_name)
+    print("Data exported in the file !")

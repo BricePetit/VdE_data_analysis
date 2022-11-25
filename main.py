@@ -3,9 +3,10 @@ __version__ = "1.0.0"
 __author__ = "Brice Petit"
 __license__ = "MIT"
 
+import datetime as dt
 import os
 import pandas as pd
-import datetime as dt
+import pytz
 
 from plot_load_curves import (
     plot_average_community,
@@ -15,12 +16,11 @@ from plot_load_curves import (
 )
 from sms_reaction import find_global_reaction_and_report
 from utils import (
-    check_negative_consumption, utc_to_cet, resample_dataset, export_to_XLSX, check_mistake
+    check_negative_consumption, resample_dataset, export_to_XLSX
 )
 
 # Import constants for the configuration of the execution
 from config import (
-    LOCAL_TZ,
     FLUKSO,
     RTU,
     # Constants for path
@@ -31,10 +31,8 @@ from config import (
     # Constants for the data management
     MANAGE_DATA,
     VERIFY_CONSUMPTION,
-    CONVERT_UTC_CET,
     RESAMPLE,
     RESAMPLE_RTU,
-    INCONSISTENCY,
     # Constants for reactions of messages
     REACTION,
     # Constants for the plotting
@@ -66,24 +64,22 @@ def manage_flukso_data():
     Function to manage data.
     """
     # For all communities
+    # for community in ['CDB']:
     for community in COMMUNITY_NAME:
         print("---------------Managing Data---------------")
         # For all file in the data folder
+        # for file in sorted(os.listdir(community)):
         for file in sorted(os.listdir(DATASET_FOLDER + '/' + community)):
             print("---------------" + file[:6] + "---------------")
+            # df = pd.read_csv(community + '/' + file)
             df = pd.read_csv(DATASET_FOLDER + '/' + community + '/' + file)
 
             # Check if there is a negative consumption
             if VERIFY_CONSUMPTION:
                 check_negative_consumption(df, file[:6])
 
-            # Check if we need to apply the correction
-            if CONVERT_UTC_CET:
-                utc_to_cet(df, file, community)
-
             # Run the resample function according to Resample boolean value
             if RESAMPLE:
-                # (df, path, columns)
                 columns = ['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot']
                 resample_dataset(df, RESAMPLED_FOLDER + '/' + file[:3], file[:-4], columns)
 
@@ -107,7 +103,7 @@ def compute_alert_reaction():
     """
     Function for reactions.
     """
-    for community in ['ECH']:
+    for community in COMMUNITY_NAME:
         print("--------------Computing Alerts--------------")
         path = RESAMPLED_FOLDER + '/' + community
         # For all file in the data folder
@@ -168,8 +164,8 @@ def plot_average(current_folder, fmt):
     :param current_folder:  Current folder where we are working (dataset or resample_dataset).
     :param fmt:             Data format.
     """
-    starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
-    ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
+    starting = dt.datetime(2022, 11, 7, 0, 0, 0).astimezone()
+    ending = dt.datetime(2022, 11, 14, 23, 59, 59).astimezone()
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
@@ -211,24 +207,32 @@ def plot_flukso():
                 print("---------------" + file[:6] + "---------------")
                 df = pd.read_csv(current_folder + '/' + community + '/' + file)
                 home_id = df.at[0, 'home_id']
+                starting = dt.datetime(2022, 5, 17, 0, 0, 0).astimezone()
+                ending = dt.datetime(2022, 5, 17, 23, 59, 59).astimezone()
                 # Select the correct path according to the format (15min or 8S (for 8sec))
                 if SEC8:
                     path = f"plots/{community}/{home_id}"
+                    cdt = True
                 else:
                     path = f"plots/{community}/{home_id}"
-                starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
-                ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
-                if BASIC_PLOT:
-                    # if int(file[12]) == 5 and int(file[7:11]) == 2022 and not :
-                    plot_data(
-                        df, path, starting, ending,
-                        f'Home: {home_id}', 'multiple_flukso', fmt
+                    cdt = int(file[12:14]) == starting.month and int(file[7:11]) == starting.year
+                if cdt and file[:6] not in ['ECHA01', 'ECHASC', 'ECHBUA', 'ECHCOM', 'ECHL09', 'ECHL17']:
+                    # Change it later because we will receive a correct df with the timezone
+                    df['ts'] = (
+                        pd.to_datetime(df['ts'])
+                        .dt
+                        .tz_localize(pytz.timezone('Europe/Brussels'), ambiguous=True)
                     )
-                elif AREA_PLOT:
-                    plot_data(
-                        df, path, starting, ending,
-                        f'Home: {home_id}', 'flukso', fmt
-                    )
+                    if BASIC_PLOT:
+                        plot_data(
+                            df, path, starting, ending,
+                            f'Home: {home_id}', 'multiple_flukso', fmt
+                        )
+                    elif AREA_PLOT:
+                        plot_data(
+                            df, path, starting, ending,
+                            f'Home: {home_id}', 'flukso', fmt
+                        )
     plot_average(current_folder, fmt)
 
 
@@ -237,8 +241,8 @@ def plot_rtu():
     Function to plot rtu data.
     """
     df = pd.read_csv(RESAMPLED_FOLDER + '/RTU/rtu_2022-11_15min.csv')
-    starting = dt.datetime(2022, 11, 7, 0, 0, 0, tzinfo=LOCAL_TZ)
-    ending = dt.datetime(2022, 11, 14, 23, 59, 59, tzinfo=LOCAL_TZ)
+    starting = dt.datetime(2022, 11, 7, 0, 0, 0).astimezone()
+    ending = dt.datetime(2022, 11, 14, 23, 59, 59).astimezone()
     plot_data(df, 'plots/RTU', starting, ending, 'Cabine basse tension', 'rtu')
 
 
@@ -263,10 +267,6 @@ def main():
 
         if RTU:
             manage_rtu_data()
-
-    # Check the inconsistency in data
-    if INCONSISTENCY:
-        check_mistake()
 
     # Compute and show the information about the alert
     if REACTION:

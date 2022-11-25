@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 
 from config import (
-    LOCAL_TZ,
     RESAMPLED_FOLDER,
     REPORTS_HOURS
 )
@@ -29,14 +28,18 @@ def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_ale
     :param df:          The dataframe.
     :param file_name:   Complete name of the file
     :param path:        Path to the file.
-    :param alerts:      List of alerts.
+    :param alerts:      Dataframe with alerts.
     :param matrix:      The matrix containing values about consumption.
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
     :param index:       Index of the home id.
     """
     for i in range(len(alerts)):
-        starting_alert = dt.datetime.fromisoformat(alerts[i][0]).replace(tzinfo=LOCAL_TZ)
-        ending_alert = dt.datetime.fromisoformat(alerts[i][1]).replace(tzinfo=LOCAL_TZ)
+        starting_alert = (
+            dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][1])).astimezone()
+        )
+        ending_alert = (
+            dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][2])).astimezone()
+        )
         if (int(file_name[7:11]) == starting_alert.year
                 and int(file_name[12:14]) == starting_alert.month):
             nb_elem = 0
@@ -133,7 +136,7 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
     :param months_home:     List of months for a home_id.
     :param sign:            The sign used for the delta. -1 if we need to check
                             before the current date, 1 otherwise.
-    :param alerts:          All alerts.
+    :param alerts:          Dataframe with alerts.
     :param starting_alert:  The beginning of the alert.
     :param ending_alert:    The end of the alert.
 
@@ -151,8 +154,12 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
         # Check if the date is not an alert.
         is_alert = False
         for i in range(len(alerts)):
-            start = dt.datetime.fromisoformat(alerts[i][0]).replace(tzinfo=LOCAL_TZ)
-            end = dt.datetime.fromisoformat(alerts[i][1]).replace(tzinfo=LOCAL_TZ)
+            start = (
+                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][1])).astimezone()
+            )
+            end = (
+                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][2])).astimezone()
+            )
             if ((start <= current_period and current_period <= end)
                     and (starting_alert <= current_period and current_period <= ending_alert)):
                 is_alert = True
@@ -173,10 +180,9 @@ def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_al
                     sum_period += tmp_sum
                     count += len(tmp_p_cons.index)
         # should be >= now
-        if current_period + delta >= dt.datetime.now(LOCAL_TZ):
+        if current_period + delta >= dt.datetime.now().astimezone():
             break
         else:
-            print(current_period)
             current_period += delta
             # check if the month is different
             if current_period.month != (current_period - delta).month:
@@ -211,8 +217,8 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
     """
     This function will find a report of the consumption before/after the alert.
 
-    :param df:          Dataframe
-    :param alerts:      All alerts.
+    :param df:          Dataframe.
+    :param alerts:      Dataframe with alerts.
     :param months_home: List of months for a home_id
     :param matrix:      The matrix containing values about consumption.
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
@@ -234,19 +240,31 @@ def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
             # Convert ts string into datetime
             if i == -1:
                 starting_alert = (
-                    dt.datetime.fromisoformat(alerts[index_j][0]).replace(tzinfo=LOCAL_TZ)
+                    dt
+                    .datetime
+                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][1]))
+                    .astimezone()
                     + (-1 * REPORTS_HOURS[j])
                 )
 
                 ending_alert = (
-                    dt.datetime.fromisoformat(alerts[index_j][1]).replace(tzinfo=LOCAL_TZ)
+                    dt
+                    .datetime
+                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][2]))
+                    .astimezone()
                 )
             else:
                 starting_alert = (
-                    dt.datetime.fromisoformat(alerts[index_j][0]).replace(tzinfo=LOCAL_TZ)
+                    dt
+                    .datetime
+                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][1]))
+                    .astimezone()
                 )
                 ending_alert = (
-                    dt.datetime.fromisoformat(alerts[index_j][1]).replace(tzinfo=LOCAL_TZ)
+                    dt
+                    .datetime
+                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][2]))
+                    .astimezone()
                     + (REPORTS_HOURS[j])
                 )
             # Compute the mean before and after the period of the alert
