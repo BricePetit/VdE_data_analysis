@@ -8,20 +8,22 @@ import datetime as dt
 import numpy as np
 import os
 import pandas as pd
-import pytz
+from typing import NoReturn
 
 
 from config import (
-    FLUKSO,
-    RTU,
+    TZ,
     REPORTS_HOURS
 )
 
 
-def check_negative_consumption(df, home_id):
+def check_negative_consumption(df: pd.DataFrame, home_id: str) -> NoReturn:
     """
     Check if there is negative consumption in the dataframe. It will print the home_id and indexes
     of the dataframe.
+
+    :param df:      Dataframe.
+    :param home_id: The id of the home.
     """
     if (df['p_cons'] < 0).any().any():
         print()
@@ -32,141 +34,32 @@ def check_negative_consumption(df, home_id):
         print()
 
 
-def convert_utc_to_local_tz(series):
-    """
-    Convert a series containing a timestamp with a specific timezone to the local timezone.
-    In this function, we remove microseconds and we convert utc to the local time zone.
-
-    :series:    Series.
-
-    :return:    Return a series with the local timezone.
-    """
-    tz = pytz.timezone('Europe/Brussels')
-    return pd.to_datetime(series, utc=True).dt.round(freq='s').dt.tz_convert(tz)
-
-
-def adjust_timestamp(initial_ts):
-    """
-    Function to adjust the initial timestamp in order to start at 00, 15, 30 or 45.
-
-    :param initial_ts:  Initial timestamp.
-
-    :return:            Adjusted initial timestamp.
-    """
-    if initial_ts.second % 60 != 00:
-        initial_ts += dt.timedelta(seconds=(60 - (initial_ts.second % 60)))
-        if initial_ts.minute % 15 != 00:
-            initial_ts += dt.timedelta(minutes=(15 - (initial_ts.minute % 15)))
-    return initial_ts
-
-
-def create_average_df_flukso(df, current_ts, columns):
-    """
-    Create the flukso dataframe with the averaged value for each columns.
-
-    :param df:          Dataframe.
-    :param current_ts:  Current timestamp.
-    :param columns:     List of column names.
-
-    :return:            Series with averaged values.
-    """
-    home_id = df['home_id'].iloc[0]
-    day = df['day'].iloc[0]
-    average_p_cons = round(df['p_cons'].mean(), 0)
-    average_p_prod = round(df['p_prod'].mean(), 0)
-    average_p_tot = round(df['p_tot'].mean(), 0)
-    return pd.DataFrame(
-        [[home_id, day, current_ts, average_p_cons, average_p_prod, average_p_tot]],
-        columns=columns
-    )
-
-
-def create_average_df_rtu(df, current_ts, columns):
-    """
-    Create the rtu dataframe with the averaged value for each columns.
-
-    :param df:          Dataframe.
-    :param current_ts:  Current timestamp.
-    :param columns:     List of column names.
-
-    :return:            Series with averaged values.
-    """
-    average_active = round(df['active'].mean(), 0)
-    average_apparent = round(df['apparent'].mean(), 0)
-    average_cos_phi = round(df['cos_phi'].mean(), 4)
-    average_reactive = round(df['reactive'].mean(), 0)
-    average_tension1_2 = round(df['tension1_2'].mean(), 4)
-    average_tension2_3 = round(df['tension2_3'].mean(), 4)
-    average_tension3_1 = round(df['tension3_1'].mean(), 4)
-    return pd.DataFrame(
-        [[
-            df['ip'].iloc[0], df['day'].iloc[0], current_ts, average_active,
-            average_apparent, average_cos_phi, average_reactive,
-            average_tension1_2, average_tension2_3, average_tension3_1
-        ]],
-        columns=columns
-    )
-
-
-def resample_dataset(df, path, file_name, columns, fmt=15):
+def resample_dataset(df: pd.DataFrame, path: str, filename: str, agg, fmt='15min') -> NoReturn:
     """
     Function to resample data into 15 minutes data.
 
     :param df:          Dataframe.
     :param path:        Path to save the file.
-    :param file_name:   Filename
-    :param columns:     List of column names.
-    :param fmt=15:      Format of the dataset.
+    :param filename:    Filename.
+    :param agg:         Aggregation to apply for the resample.
+    :param fmt='15min': Format of the dataset.
     """
-    # Convert the timezone
-    df['ts'] = convert_utc_to_local_tz(df['ts'])
-    # Create the new dataframe
-    new_df = pd.DataFrame(columns=columns)
-    # Init time
-    initial_ts = adjust_timestamp(df['ts'][0])
-    last_ts = df['ts'].iloc[-1]
-    current_ts = initial_ts
-    delta = dt.timedelta(minutes=fmt)
+    print(f"--------------------Processing file {filename}--------------------")
     if not os.path.isdir(path):
         os.makedirs(path)
-    # Loop until we parsed the entire file
-    while current_ts < last_ts:
-        tmp_df = df.query(
-            "ts >= \"" + str(current_ts) + "\" and ts < \"" + str(current_ts + delta) + "\""
-        )
-        # Check if the df is not empty because it is possible to obtain a gap between periods
-        if tmp_df.size != 0:
-            if FLUKSO:
-                new_df = pd.concat(
-                    [new_df, create_average_df_flukso(tmp_df, current_ts, columns)],
-                    ignore_index=True
-                )
-            elif RTU:
-                new_df = pd.concat(
-                    [new_df, create_average_df_rtu(tmp_df, current_ts, columns)],
-                    ignore_index=True
-                )
-            # If the next 15 minutes are in another month, we will save the current month.
-            if current_ts.month != (current_ts + delta).month:
-                month = str(current_ts.month)
-                month = "0" + month if len(month) == 1 else month
-                new_df.to_csv(
-                    path + '/' + file_name + '_' + str(current_ts.year) + "-"
-                    + month + '_' + str(fmt) + 'min.csv', index=False
-                )
-                new_df = pd.DataFrame(columns=columns)
-        # Update the timestamp
-        current_ts = current_ts + delta
-    # Write the sampled dataset
-    month = str(current_ts.month)
-    month = "0" + month if len(month) == 1 else month
-    new_df.to_csv(
-        path + '/' + file_name + '_' + str(current_ts.year) + "-" + month
-        + '_' + str(fmt) + 'min.csv', index=False
+    df['ts'] = pd.to_datetime(df['ts'], utc=True)
+    df = (
+        df
+        .resample(fmt, on='ts')
+        .agg(agg)
+        .reset_index()
     )
+    df['ts'] = pd.to_datetime(df['ts']).dt.tz_convert(TZ)
+    df.to_csv(path + '/' + filename + '_' + fmt + '.csv', index=False)
+    print(f"--------------------{filename} saved--------------------")
 
 
-def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
+def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name) -> NoReturn:
     """
     Export the dataframe in a excel file.
 
@@ -176,6 +69,7 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
     :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
     :param file_name:   Filename.
     """
+    print(f"Exporting data of {home_ids[0][:3]}...")
     # Week of the day
     weekday = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
     months = [
@@ -200,7 +94,7 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
                 # Where j is the number of the alert
                 sep = '' if k == -1 else '+'
                 alerts_name[alert_idx + (k * (m + 1))] = (
-                    'A' + str(j + 1) + sep + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
+                    sep + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
                 )
             # Write value A
             str_alert = ""
@@ -210,16 +104,16 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name):
             ending_date = (
                 dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[j][2])).astimezone()
             )
-            str_alert += weekday[starting_date.weekday()]
-            str_alert += str(starting_date.day) + ' '
-            str_alert += months[starting_date.month - 1] + ' '
-            str_alert += str(starting_date.hour) + 'h - ' + str(ending_date.hour) + 'h'
+            str_alert += f"{weekday[starting_date.weekday()]}"
+            str_alert += f" {str(starting_date.day)} \n"
+            str_alert += f"{months[starting_date.month - 1]} "
+            str_alert += f"{str(starting_date.hour)}h - {str(ending_date.hour)}h"
 
             alerts_name[alert_idx] = str_alert
     # Create the dataframe with specific indexes and column name
     df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
     # Create a dataframe with the "Bilan"
-    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en kWh"], columns=alerts_name)
+    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en Wh"], columns=alerts_name)
     # Concatenate the two dataframes
     df = pd.concat([df, tmp_df])
     # Write the dataframe into an xlsx file

@@ -9,11 +9,13 @@ from config import (
 )
 
 
+import datetime as dt
 import matplotlib.dates as dates
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import random
+from typing import NoReturn, Optional, List
 
 
 # ---------------------------------- #
@@ -21,7 +23,14 @@ import random
 # ---------------------------------- #
 
 
-def create_average_df(starting, ending, current_folder, all_files, house_nb, fmt):
+def create_average_df(
+    starting: dt.datetime,
+    ending: dt.datetime,
+    current_folder: str,
+    all_files: List[str],
+    house_nb: int,
+    fmt: str
+) -> pd.DataFrame:
     """
     Function to create an average DataFrame over a period.
 
@@ -75,7 +84,13 @@ def create_average_df(starting, ending, current_folder, all_files, house_nb, fmt
     return new_df
 
 
-def plot_average_community(starting, ending, current_folder, house_nb, fmt):
+def plot_average_community(
+    starting: dt.datetime,
+    ending: dt.datetime,
+    current_folder: str,
+    house_nb: int,
+    fmt: str
+) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date for
     a given community. The community is ECH or CDB.
@@ -118,7 +133,13 @@ def plot_average_community(starting, ending, current_folder, house_nb, fmt):
         )
 
 
-def average_through_community(starting, ending, current_folder, house_nb, fmt):
+def average_through_community(
+    starting: dt.datetime,
+    ending: dt.datetime,
+    current_folder: str,
+    house_nb: int,
+    fmt: str
+) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date.
     We apply the average over all houses in both communities.
@@ -152,7 +173,12 @@ def average_through_community(starting, ending, current_folder, house_nb, fmt):
     )
 
 
-def plot_aggregation(starting, ending, current_folder, fmt):
+def plot_aggregation(
+    starting: dt.datetime,
+    ending: dt.datetime,
+    current_folder: str,
+    fmt: str
+) -> NoReturn:
     """
     Function to plot the aggregation for both communities.
 
@@ -173,7 +199,12 @@ def plot_aggregation(starting, ending, current_folder, fmt):
         )
 
 
-def flukso_basic_plot(idx, week, ax, i=None):
+def flukso_basic_plot(
+    idx: pd.DatetimeIndex,
+    week: pd.DataFrame,
+    ax: plt.Axes,
+    i: Optional[int] = None
+) -> NoReturn:
     """
     Function to plot flukso data.
 
@@ -222,26 +253,109 @@ def flukso_basic_plot(idx, week, ax, i=None):
     ax.legend()
 
 
-def rtu_basic_plot(idx, week, ax):
+def rtu_basic_plot(idx: pd.DatetimeIndex, df: pd.DataFrame, ax: plt.Axes) -> NoReturn:
     """
     Function to plot rtu data.
 
-    :param idx:     DataIndex.
-    :param week:    DataFrame containing data of a week.
-    :param ax:      1er axis.
+    :param idx: DataIndex.
+    :param df:  DataFrame containing data of a week.
+    :param ax:  1er axis.
     """
     # Plot values
-    ax.plot(idx, week['active'], color="red", label='Active power')
+    ax.plot(idx, df['active'], color="red", label='Active power')
     # Fill areas
     ax.fill_between(
-        idx, week['active'], where=week['active'] > 0,
+        idx, df['active'], where=df['active'] > 0,
         color="lightyellow", label='Withdrawal'
     )
     # Show the legend
     ax.legend()
 
 
-def plot_formatter(ax, ax2, tz, i=None):
+def rtu_plot(df: pd.DataFrame, ts_series, path_to_save: str, title: str) -> NoReturn:
+    """
+    Function to do a plot of RTU.
+
+    :param df:              Dataframe to plot.
+    :param ts_series:       Series for the index.
+    :param path_to_save:    Path to save the plot.
+    :param title:           Title of the plot.
+    """
+    idx = pd.DatetimeIndex(ts_series)
+    # Parameter to obtain a large figure
+    plt.rcParams["figure.figsize"] = [10, 8]
+    # Plot data
+    # Create the plot
+    fig, ax = plt.subplots()
+    # Plot line to recognize the 0
+    ax.axhline(y=0, color="black", linestyle="--")
+    rtu_basic_plot(idx, df, ax)
+    # Create line separation on the plot
+    ax.xaxis.grid(True, which="major")
+    # Parameter to plot hours on the first axis
+    ax.xaxis.set_major_locator(dates.HourLocator())
+    ax.xaxis.set_major_formatter(dates.DateFormatter('%H'))
+    # Set a limit for the second axis based on the first axis
+    # Set the title of the x/y-axis
+    ax.set_xlabel('Time (Hour)')
+    ax.set_ylabel('Power (Watt)')
+    # Plot a title
+    plt.suptitle(title)
+    # Check if the path exists. If it is not the case, we create it
+    if not os.path.exists(path_to_save):
+        os.makedirs(path_to_save)
+    # Save the fig
+    fig.savefig(
+        f"{path_to_save}/rtu_mean_wednesday.png"
+    )
+    plt.close()
+
+
+def flukso_plot(df: pd.DataFrame, ts_series, path_to_save: str, title: str) -> NoReturn:
+    """
+    Function to do a plot of flukso.
+
+    :param df:              Dataframe to plot.
+    :param ts_series:       Series for the index.
+    :param path_to_save:    Path to save the plot.
+    :param title:           Title of the plot.
+    """
+    idx = pd.DatetimeIndex(ts_series)
+    # Parameter to obtain a large figure
+    plt.rcParams["figure.figsize"] = [10, 8]
+    # Plot data
+    # Create the plot
+    fig, ax = plt.subplots()
+    # Plot line to recognize the 0
+    ax.axhline(y=0, color="black", linestyle="--")
+    flukso_basic_plot(idx, df, ax)
+    # Create line separation on the plot
+    ax.xaxis.grid(True, which="major")
+    # Parameter to plot hours on the first axis
+    ax.xaxis.set_major_locator(dates.HourLocator())
+    ax.xaxis.set_major_formatter(dates.DateFormatter('%H'))
+    # Set a limit for the second axis based on the first axis
+    # Set the title of the x/y-axis
+    ax.set_xlabel('Time (Hour)')
+    ax.set_ylabel('Power (Watt)')
+    # Plot a title
+    plt.suptitle(title)
+    # Check if the path exists. If it is not the case, we create it
+    if not os.path.exists(path_to_save):
+        os.makedirs(path_to_save)
+    # Save the fig
+    fig.savefig(
+        f"{path_to_save}/{path_to_save[-6:]}_mean_wednesday.png"
+    )
+    plt.close()
+
+
+def plot_formatter(
+    ax: plt.Axes,
+    ax2: plt.Axes,
+    tz: dt.timezone,
+    i: Optional[int] = None
+) -> NoReturn:
     """
     Function to format the two axis on the graph.
 
@@ -279,14 +393,21 @@ def plot_formatter(ax, ax2, tz, i=None):
             ax.xaxis.set_major_formatter(dates.DateFormatter('%H', tz=tz))
 
 
-def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
+def plot_data(
+    df: pd.DataFrame,
+    path: str,
+    starting: dt.datetime,
+    ending: dt.datetime,
+    title: str,
+    plot_type: str,
+    fmt: str = '15min'
+) -> NoReturn:
     """
     Plot all curves according to the starting and ending date. Plot also areas
     between total power curve.
 
     :param df:          The dataframe.
     :param path:        The pave to save the plot.
-    :param home_id:     Id of the house in str.
     :param starting:    The beginning of the date.
     :param ending:      The end of the date.
     :param title:       Title of the fig.
@@ -304,7 +425,7 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
     # on the bottom
     idx = pd.DatetimeIndex(week['ts'])
     # Parameter to obtain a large figure
-    plt.rcParams["figure.figsize"] = [9 * ((ending - starting).days + 1), 9]
+    plt.rcParams["figure.figsize"] = [10 * ((ending - starting).days + 1), 8]
     # Plot data
     if plot_type == "multiple_flukso":
         # Create the plot
@@ -328,6 +449,7 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
         if plot_type == "rtu":
             # Plot rtu data
             rtu_basic_plot(idx, week, ax)
+
         elif plot_type == "flukso":
             # Plot flukso data
             flukso_basic_plot(idx, week, ax)
@@ -344,13 +466,129 @@ def plot_data(df, path, starting, ending, title, plot_type, fmt='15min'):
     if not os.path.exists(path):
         os.makedirs(path)
     # Save the fig
-    fig.savefig(
-        f"{path}/{df.at[0, 'home_id']}_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
-    )
+    if plot_type == "rtu":
+        fig.savefig(
+            f"{path}/RTU_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
+        )
+    else:
+        fig.savefig(
+            f"{path}/{df.at[0, 'home_id']}_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
+        )
     plt.close()
 
 
-def main():
+def plot_median_quantile(mean, first_q, third_q, col_name, ts_series, title, path) -> NoReturn:
+    """
+    Function to plot the median, the first quantile and the third quantile.
+
+    :param mean:        Series with the mean.
+    :param first_q:     Series with the first quantile.
+    :param third_q:     Series with the third quantile.
+    :param col_name:    The name of the column.
+    :param ts_series:   Series containing all hours to plot.
+    :param title:       Title of the plot.
+    :param path:        Path to save the file.
+    """
+    # Create time values according to the format for the plot on the x-axis that is
+    # on the bottom
+    idx = pd.DatetimeIndex(ts_series)
+    # Parameter to obtain a large figure
+    plt.rcParams["figure.figsize"] = [10, 8]
+    # Plot data
+    # Create the plot
+    fig, ax = plt.subplots()
+    # Plot line to recognize the 0
+    ax.axhline(y=0, color="black", linestyle="--")
+    # ax.plot(idx, std, color="gray")
+    ax.errorbar(idx, mean, yerr=[first_q, third_q], capsize=2)
+    # Create line separation on the plot
+    ax.xaxis.grid(True, which="major")
+    # Parameter to plot hours on the first axis
+    ax.xaxis.set_major_locator(dates.HourLocator())
+    ax.xaxis.set_major_formatter(dates.DateFormatter('%H'))
+    # Set a limit for the second axis based on the first axis
+    # Set the title of the x/y-axis
+    ax.set_xlabel('Time (Hour)')
+    ax.set_ylabel('Power (Watt)')
+    # if col_name == "p_cons":
+    #     plt.ylim(bottom=-0.1)
+    # elif col_name == "p_prod":
+    #     plt.ylim(top=0.1)
+    # else:
+    #     if all(value > 0 for value in mean):
+    #         plt.ylim(bottom=-0.1)
+    # Plot a title
+    plt.suptitle(title)
+    # Check if the path exists. If it is not the case, we create it
+    if not os.path.exists(path):
+        os.makedirs(path)
+    # Save the fig
+    if col_name == 'rtu':
+        fig.savefig(
+            f"{path}/{col_name}_median_quantile_.png"
+        )
+    else:
+        fig.savefig(
+            f"{path}/{title[-6:]}_median_quantile_{col_name}.png"
+        )
+    # plt.show()
+    plt.close()
+
+
+def plot_median_quantile_rtu(df: pd.DataFrame, plot_path: str) -> NoReturn:
+    """
+    Function to plot the median, first and third quantile for the rtu data.
+
+    :param df:          DataFrame.
+    :param plot_path:   Path to save the plot.
+    """
+    time_series = (
+        pd.date_range("00:00:00", freq='15min', periods=96)
+        .to_series()
+        .apply(lambda x: x.strftime('%H:%M:%S'))
+        .reset_index(drop=True)
+    )
+    median = df.groupby(df['ts'].dt.time).median(numeric_only=True)
+    first_q = df.groupby(df['ts'].dt.time).quantile(q=0.25, numeric_only=True)
+    third_q = df.groupby(df['ts'].dt.time).quantile(q=0.75, numeric_only=True)
+    title = "Low voltage cabin (RTU) - active power"
+    plot_median_quantile(
+        median['active'], first_q['active'], third_q['active'], 'rtu', time_series, title, plot_path
+    )
+
+
+def plot_median_quantile_flukso(df: pd.DataFrame, plot_path: str) -> NoReturn:
+    """
+    Function to plot the median, first and third quantile flukso data.
+
+    :param df:              DataFrame.
+    :param current_home:    List of all file for the home.
+    """
+    print(df['home_id'].iloc[0])
+    print(df)
+    # Create a series
+    time_series = (
+        pd.date_range("00:00:00", freq='15min', periods=96)
+        .to_series()
+        .apply(lambda x: x.strftime('%H:%M:%S'))
+        .reset_index(drop=True)
+    )
+    median = df.groupby(df['ts'].dt.time).median(numeric_only=True)
+    first_q = df.groupby(df['ts'].dt.time).quantile(q=0.25, numeric_only=True).abs()
+    third_q = df.groupby(df['ts'].dt.time).quantile(q=0.75, numeric_only=True).abs()
+    for col in ['p_cons', 'p_prod', 'p_tot']:
+        if col == 'p_cons':
+            title = f"House's consumption: {df['home_id'].iloc[0]}"
+        elif col == 'p_prod':
+            title = f"House's production: {df['home_id'].iloc[0]}"
+        else:
+            title = f"House's total power: {df['home_id'].iloc[0]}"
+        plot_median_quantile(
+            median[col], first_q[col], third_q[col], col, time_series, title, plot_path
+        )
+
+
+def main() -> NoReturn:
     house = 'CDB005'
     start_date = '2022-11-03 '
     end_date = '2022-11-03 '

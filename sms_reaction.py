@@ -5,15 +5,14 @@ __license__ = "MIT"
 
 
 from config import (
-    RESAMPLED_FOLDER,
     REPORTS_HOURS
 )
 
 
-import copy
 import datetime as dt
-import os
+import numpy as np
 import pandas as pd
+from typing import NoReturn, List, Tuple
 
 
 # -------------------------------------- #
@@ -21,80 +20,171 @@ import pandas as pd
 # -------------------------------------- #
 
 
-def find_global_reaction_and_report(df, file_name, path, alerts, matrix, sum_alerts, index):
+def find_reaction_report(
+    df: pd.DataFrame,
+    alerts: pd.DataFrame,
+    matrix,
+    sum_alerts,
+    index: int
+) -> NoReturn:
     """
-    Function to find a reaction in the dataframe in a global point of view.
+    Function to compute the reaction and the report.
 
-    :param df:          The dataframe.
-    :param file_name:   Complete name of the file
-    :param path:        Path to the file.
+    :param df:          Dataframe.
     :param alerts:      Dataframe with alerts.
-    :param matrix:      The matrix containing values about consumption.
-    :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
-    :param index:       Index of the home id.
+    :param matrix:      Matrix with the result of report and reaction.
+    :param sum_alerts:  Matrix with the sum during alerts and not.
+    :param index:       The index of the home.
     """
-    for i in range(len(alerts)):
-        starting_alert = (
+    for i in range(len(alerts.index)):
+        start_alert = (
             dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][1])).astimezone()
         )
-        ending_alert = (
+        end_alert = (
             dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][2])).astimezone()
         )
-        if (int(file_name[7:11]) == starting_alert.year
-                and int(file_name[12:14]) == starting_alert.month):
-            nb_elem = 0
-            mean_not_alert = 0
-            sum_not_alert = 0
-            months_home = []
-            # Get the number of delta time used for the report
-            nb_delta_alert = len(REPORTS_HOURS)
-            # Compute the index according reported values
-            # For each alert, we have:
-            # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
-            alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
-            # We recover all month for the current home
-            for file2 in sorted(os.listdir(path)):
-                if file_name != file2:
-                    if file_name[:6] == file2[:6]:
-                        months_home.append(file2)
-            # Sum all values before and after the period of the alert
-            for k in [-1, 1]:
-                tmp_sum, tmp_nb_elem = compute_sum_up_to_bound_and_count(
-                    df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
+        nb_hours = ((end_alert - start_alert) / 3600).seconds
+        nb_delta_alert = len(REPORTS_HOURS)
+        alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
+        # Group according to day of the week, 0 is Monday.
+        grouped_df = df.groupby(df['ts'].dt.weekday)
+        # Take the correct group according to the day of the alert.
+        days_df = grouped_df.get_group(start_alert.weekday())
+        # Keep only the period of the alert.
+        days_df = (
+            days_df[
+                (start_alert.time() <= days_df['ts'].dt.time)
+                & (days_df['ts'].dt.time < end_alert.time())
+            ]
+        )
+        # Take the day of the alert and keep others
+        alert_df = days_df[days_df['day'].dt.date == start_alert.date()]['p_cons']
+        # Remove the day of the alert and keep others
+        not_alert = days_df[days_df['day'].dt.date != start_alert.date()]['p_cons']
+        # Sum for alert and non alert data
+        sum_alert = alert_df.sum()
+        sum_not_alert = not_alert.sum()
+        # Mean for alert and non alert data
+        mean_alert = alert_df.mean()
+        mean_not_alert = not_alert.mean()
+        # Combined mean
+        global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+        # Compute the percentages
+        matrix[index][alert_idx] = (
+            ((mean_alert - mean_not_alert) / global_mean)
+            * 100
+        )
+        # Register the total sum of energy consumption in kWh
+        if sum_alert > 0 and sum_not_alert > 0:
+            sum_alerts[alert_idx] += (
+                (sum_alert - (sum_not_alert * len(alert_df.index) / len(not_alert.index)))
+                / nb_hours
+            )
+        # Find report
+        find_report(
+            df, matrix, sum_alerts, index, start_alert, end_alert, nb_delta_alert, alert_idx
+        )
+
+
+def find_report(
+    df: pd.DataFrame,
+    matrix,
+    sum_alerts,
+    index_i: int,
+    start_alert,
+    end_alert,
+    nb_delta_alert: int,
+    alert_idx: int
+) -> NoReturn:
+    """
+    Function to compute the report.
+
+    :param df:              Dataframe.
+    :param matrix:          Matrix with the result of report and reaction.
+    :param sum_alerts:      Matrix with the sum during alerts and not.
+    :param index_i:         The index of the home.
+    :param start_alert:     Start of the alert.
+    :param end_alert:       End of the alert.
+    :param nb_delta_alert:  Number of reports.
+    :param alert_idx:       Index of the alert.
+    """
+    # We used the -1 and 1 to go before/after the alert
+    for i in [-1, 1]:
+        # For each delta time
+        for j in range(nb_delta_alert):
+            if i == -1:
+                start_alert_report = start_alert - REPORTS_HOURS[j]
+                end_alert_report = start_alert
+            else:
+                start_alert_report = end_alert
+                end_alert_report = end_alert + REPORTS_HOURS[j]
+            # Group according to day of the week, 0 is Monday.
+            grouped_df = df.groupby(df['ts'].dt.weekday)
+            # Take the correct group according to the day of the alert.
+            if start_alert_report.weekday() != end_alert_report.weekday():
+                day1 = (
+                    df[
+                        (df["ts"].dt.weekday == start_alert_report.weekday())
+                        & (df["ts"].dt.hour >= start_alert_report.hour)
+                        & (df["ts"].dt.hour <= 23)
+                    ]
                 )
-                if tmp_sum > 0:
-                    sum_not_alert += tmp_sum
-                    nb_elem += tmp_nb_elem
-            # Mean during the alert
-            alert_df = df.query(
-                "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
-            )['p_cons']
-
-            if not (alert_df <= 0).any().any():
-                sum_alert = alert_df.sum()
-                mean_alert = alert_df.mean()
-                # Combined mean
-                global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
-                nb_elem = 1 if nb_elem == 0 else nb_elem
-                mean_not_alert = sum_not_alert / nb_elem
-                # Compute the percentage
-                matrix[index][alert_idx] = (
-                    ((mean_alert - mean_not_alert) / global_mean)
-                    * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
+                day2 = (
+                    df[
+                        (df["ts"].dt.weekday == end_alert_report.weekday())
+                        & (df["ts"].dt.hour >= 0)
+                        & (df["ts"].dt.hour < end_alert_report.hour)
+                    ]
                 )
-                # Register the total sum of energy consumption in kWh
-                if sum_alert > 0 and sum_not_alert > 0:
-                    # We divide by 1000 because we want the results in kW and divide by 4
-                    # to have the info in kWh
-                    sum_alerts[alert_idx] += (
-                        (sum_alert - (sum_not_alert * len(alert_df) / nb_elem)) / 4000
-                    )
+                days_df = pd.concat([day1, day2]).sort_values(by='ts')
+                # Take the day of the alert and keep others
+                alert_df = days_df[
+                    (days_df['day'].dt.date == start_alert_report.date())
+                    | (days_df['day'].dt.date == end_alert_report.date())
+                ]['p_cons']
+                # Remove the day of the alert and keep others
+                not_alert = days_df[
+                    (days_df['day'].dt.date != start_alert_report.date())
+                    | (days_df['day'].dt.date != end_alert_report.date())
+                ]['p_cons']
+            else:
+                days_df = grouped_df.get_group(start_alert_report.weekday())
+                # Keep only the period of the alert.
+                days_df = (
+                    days_df[
+                        (start_alert_report.time() <= days_df['ts'].dt.time)
+                        & (days_df['ts'].dt.time < end_alert_report.time())
+                    ]
+                )
+                # Take the day of the alert and keep others
+                alert_df = days_df[days_df['day'].dt.date == start_alert_report.date()]['p_cons']
+                # Remove the day of the alert and keep others
+                not_alert = days_df[days_df['day'].dt.date != start_alert_report.date()]['p_cons']
+            # Sum for the alert and outside the alert
+            sum_not_alert = not_alert.sum()
+            sum_alert = alert_df.sum()
+            # Mean during the alert and outside the alert
+            mean_not_alert = not_alert.mean()
+            mean_alert = alert_df.mean()
+            # Compute global mean
+            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+            # Register the percentage of reduction
+            matrix[index_i][alert_idx + (i * (j + 1))] = (
+                ((mean_alert - mean_not_alert) / global_mean)
+                * 100
+            )
+            # Register the total sum of energy consumption in kWh
+            sum_alerts[alert_idx + (i * (j + 1))] += (
+                (sum_alert - (sum_not_alert * len(alert_df) / len(not_alert.index)))
+                / (REPORTS_HOURS[j].total_seconds() / 3600)
+            )
 
-                # Find report
-                find_report(df, alerts, months_home,  matrix, sum_alerts, index, i)
 
-
-def non_contiguous_data(months_home, current_period, sign):
+def non_contiguous_data(
+    months_home: List[str],
+    current_period: dt.datetime,
+    sign: int
+) -> Tuple[bool, str, dt.datetime]:
     """
     Temp function to find the following home where dates are not contiguous.
 
@@ -103,7 +193,7 @@ def non_contiguous_data(months_home, current_period, sign):
     :param sign:            The sign used for the delta. -1 if we need to check
                             before the current date, 1 otherwise.
 
-    :return:                find, file_name, current_period
+    :return:                find, file_name, current_period.
     """
     find = False
     file_name = ""
@@ -128,190 +218,12 @@ def non_contiguous_data(months_home, current_period, sign):
     return find, file_name, current_period
 
 
-def compute_sum_up_to_bound_and_count(df, months_home, sign, alerts, starting_alert, ending_alert):
-    """
-    This function will compute the mean before or after the alert according to the sign
-
-    :param df:              Dataframe.
-    :param months_home:     List of months for a home_id.
-    :param sign:            The sign used for the delta. -1 if we need to check
-                            before the current date, 1 otherwise.
-    :param alerts:          Dataframe with alerts.
-    :param starting_alert:  The beginning of the alert.
-    :param ending_alert:    The end of the alert.
-
-    :return:                Return the sum during the period and the number of elements.
-    """
-    current_period = starting_alert
-    # The time between the beginning of the alert and the end of the alert
-    delta_alert = ending_alert - starting_alert
-    delta = dt.timedelta(days=7 * sign)
-    sum_period = 0
-    count = 0
-    tmp_df = df
-    # For each file before or after (depending on the sign) the alert.
-    while True:
-        # Check if the date is not an alert.
-        is_alert = False
-        for i in range(len(alerts)):
-            start = (
-                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][1])).astimezone()
-            )
-            end = (
-                dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][2])).astimezone()
-            )
-            if ((start <= current_period and current_period <= end)
-                    and (starting_alert <= current_period and current_period <= ending_alert)):
-                is_alert = True
-                break
-        # If it is not an alert, we query the date and we do the sum
-        if not is_alert:
-            tmp_p_cons = (
-                tmp_df
-                .query(
-                    "ts >= \"" + str(current_period) + "\" and ts < \""
-                    + str(current_period + delta_alert) + "\""
-                )['p_cons']
-            )
-            if not (tmp_p_cons <= 0).any().any():
-                tmp_sum = tmp_p_cons.sum()
-                # If the consumption is not missing or negative
-                if tmp_sum > 0:
-                    sum_period += tmp_sum
-                    count += len(tmp_p_cons.index)
-        # should be >= now
-        if current_period + delta >= dt.datetime.now().astimezone():
-            break
-        else:
-            current_period += delta
-            # check if the month is different
-            if current_period.month != (current_period - delta).month:
-                find = False
-                file_name = ""
-                # Search the following month
-                for i in range(len(months_home)):
-                    # Check if years are equal and check if months are equals,
-                    # case where the month is one or two digit(s)
-                    if (
-                        (int(months_home[i][7:11]) == int(current_period.year))
-                        and
-                        (months_home[i][12:14] == str(current_period.month))
-                    ):
-                        find = True
-                        file_name = months_home[i]
-                        del months_home[i]
-                        break
-                find, file_name, current_period = non_contiguous_data(
-                    months_home, current_period, sign
-                )
-                # If it is the case, we continue
-                if find:
-                    tmp_df = pd.read_csv(RESAMPLED_FOLDER + '/' + file_name[:3] + '/' + file_name)
-                # Otherwise, there is no more file
-                else:
-                    break
-    return sum_period, count
-
-
-def find_report(df, alerts, months_home, matrix, sum_alerts, index_i, index_j):
-    """
-    This function will find a report of the consumption before/after the alert.
-
-    :param df:          Dataframe.
-    :param alerts:      Dataframe with alerts.
-    :param months_home: List of months for a home_id
-    :param matrix:      The matrix containing values about consumption.
-    :param sum_alerts:  List of all consumption during alerts - same period outside alerts.
-    :param index_i:     The index of the home_id.
-    :param index_j:     The index of the alert.
-
-    :return:                Return the mean.
-    """
-    # Get the number of delta time used for the report
-    nb_delta_alert = len(REPORTS_HOURS)
-    # Compute the index according reported values
-    # For each alert, we have:
-    # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
-    alert_idx = (index_j * 2 * nb_delta_alert) + (index_j + nb_delta_alert)
-    # We used the -1 and 1 to go before/after the alert
-    for i in [-1, 1]:
-        # For each delta time
-        for j in range(nb_delta_alert):
-            # Convert ts string into datetime
-            if i == -1:
-                starting_alert = (
-                    dt
-                    .datetime
-                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][1]))
-                    .astimezone()
-                    + (-1 * REPORTS_HOURS[j])
-                )
-
-                ending_alert = (
-                    dt
-                    .datetime
-                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][2]))
-                    .astimezone()
-                )
-            else:
-                starting_alert = (
-                    dt
-                    .datetime
-                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][1]))
-                    .astimezone()
-                )
-                ending_alert = (
-                    dt
-                    .datetime
-                    .fromtimestamp(dt.datetime.timestamp(alerts.iloc[index_j][2]))
-                    .astimezone()
-                    + (REPORTS_HOURS[j])
-                )
-            # Compute the mean before and after the period of the alert
-            nb_elem = 0
-            mean_not_alert = 0
-            sum_not_alert = 0
-            # Check before and after the period
-            for k in [-1, 1]:
-                tmp_sum, tmp_nb_elem = compute_sum_up_to_bound_and_count(
-                    df, copy.deepcopy(months_home), k, alerts, starting_alert, ending_alert
-                )
-                if tmp_sum > 0:
-                    sum_not_alert += tmp_sum
-                    nb_elem += tmp_nb_elem
-
-            # Mean during the alert
-            alert_df = df.query(
-                "ts >= \"" + str(starting_alert) + "\" and ts < \"" + str(ending_alert) + "\""
-            )['p_cons']
-            sum_alert = alert_df.sum()
-            mean_alert = alert_df.mean()
-
-            # Compute global mean
-            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + nb_elem)
-            # Compute mean without the alert period
-            nb_elem = 1 if nb_elem == 0 else nb_elem
-            mean_not_alert = sum_not_alert / nb_elem
-            # Register the percentage of reduction
-            matrix[index_i][alert_idx + (i * (j + 1))] = (
-                ((mean_alert - mean_not_alert) / global_mean)
-                * 100 if global_mean > 0 and mean_alert > 0 and mean_not_alert > 0 else 0
-            )
-            # Register the total sum of energy consumption in kWh
-            if sum_alert > 0 and sum_not_alert > 0:
-                # We divide by 1000 because we want the results in kW and divide by 4
-                # to have the info in kWh
-                sum_alerts[alert_idx + (i * (j + 1))] += (
-                    (sum_alert - (sum_not_alert * len(alert_df) / nb_elem)) / 4000
-                )
-
-
-def compute_energy(series, dt):
+def compute_energy(series: pd.Series, dt: float) -> np.float64:
     """
     Function to compute the energy where the formula of the evergy is:
     E = dt * sum(Powers)
 
-    :param df:  Series containing powers.
+    :param series:  Series containing powers.
     :param dt:  Derivative of time expressed in hour.
 
     :return:    Return the Wh
@@ -319,7 +231,7 @@ def compute_energy(series, dt):
     return series.sum() * dt
 
 
-def check_data():
+def check_data() -> NoReturn:
     """
     Test for data to be sure that we have correct data.
     """
