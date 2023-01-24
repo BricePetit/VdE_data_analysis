@@ -58,32 +58,34 @@ def find_reaction_report(
             ]
         )
         # Take the day of the alert and keep others
-        alert_df = days_df[days_df['day'].dt.date == start_alert.date()]['p_cons']
+        alert_df = days_df[days_df['day'].dt.date == start_alert.date()]
         # Remove the day of the alert and keep others
-        not_alert = days_df[days_df['day'].dt.date != start_alert.date()]['p_cons']
-        # Sum for alert and non alert data
-        sum_alert = alert_df.sum()
-        sum_not_alert = not_alert.sum()
-        # Mean for alert and non alert data
-        mean_alert = alert_df.mean()
-        mean_not_alert = not_alert.mean()
-        # Combined mean
-        global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
-        # Compute the percentages
-        matrix[index][alert_idx] = (
-            ((mean_alert - mean_not_alert) / global_mean)
-            * 100
-        )
-        # Register the total sum of energy consumption in kWh
-        if sum_alert > 0 and sum_not_alert > 0:
-            sum_alerts[alert_idx] += (
-                (sum_alert - (sum_not_alert * len(alert_df.index) / len(not_alert.index)))
-                / nb_hours
+        not_alert = days_df[days_df['day'].dt.date != start_alert.date()]
+        ts_size = len(pd.date_range(start_alert, end_alert, freq='15min'))
+        if len(alert_df.index) > (ts_size / 2) and len(alert_df.index) <= ts_size:
+            # Sum for alert and non alert data
+            sum_alert = alert_df['p_cons'].sum()
+            sum_not_alert = not_alert['p_cons'].sum()
+            # Mean for alert and non alert data
+            mean_alert = alert_df['p_cons'].mean()
+            mean_not_alert = not_alert['p_cons'].mean()
+            # Combined mean
+            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+            # Compute the percentages
+            matrix[index][alert_idx] = (
+                ((mean_alert - mean_not_alert) / global_mean)
+                * 100
             )
-        # Find report
-        find_report(
-            df, matrix, sum_alerts, index, start_alert, end_alert, nb_delta_alert, alert_idx
-        )
+            # Register the total sum of energy consumption in kWh
+            if sum_alert > 0 and sum_not_alert > 0:
+                sum_alerts[alert_idx] += (
+                    (sum_alert - (sum_not_alert * len(alert_df.index) / len(not_alert.index)))
+                    / nb_hours
+                )
+            # Find report
+            find_report(
+                df, matrix, sum_alerts, index, start_alert, end_alert, nb_delta_alert, alert_idx
+            )
 
 
 def find_report(
@@ -141,12 +143,12 @@ def find_report(
                 alert_df = days_df[
                     (days_df['day'].dt.date == start_alert_report.date())
                     | (days_df['day'].dt.date == end_alert_report.date())
-                ]['p_cons']
+                ]
                 # Remove the day of the alert and keep others
                 not_alert = days_df[
                     (days_df['day'].dt.date != start_alert_report.date())
                     | (days_df['day'].dt.date != end_alert_report.date())
-                ]['p_cons']
+                ]
             else:
                 days_df = grouped_df.get_group(start_alert_report.weekday())
                 # Keep only the period of the alert.
@@ -157,27 +159,38 @@ def find_report(
                     ]
                 )
                 # Take the day of the alert and keep others
-                alert_df = days_df[days_df['day'].dt.date == start_alert_report.date()]['p_cons']
+                alert_df = days_df[days_df['day'].dt.date == start_alert_report.date()]
                 # Remove the day of the alert and keep others
-                not_alert = days_df[days_df['day'].dt.date != start_alert_report.date()]['p_cons']
-            # Sum for the alert and outside the alert
-            sum_not_alert = not_alert.sum()
-            sum_alert = alert_df.sum()
-            # Mean during the alert and outside the alert
-            mean_not_alert = not_alert.mean()
-            mean_alert = alert_df.mean()
-            # Compute global mean
-            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
-            # Register the percentage of reduction
-            matrix[index_i][alert_idx + (i * (j + 1))] = (
-                ((mean_alert - mean_not_alert) / global_mean)
-                * 100
-            )
-            # Register the total sum of energy consumption in kWh
-            sum_alerts[alert_idx + (i * (j + 1))] += (
-                (sum_alert - (sum_not_alert * len(alert_df) / len(not_alert.index)))
-                / (REPORTS_HOURS[j].total_seconds() / 3600)
-            )
+                not_alert = days_df[days_df['day'].dt.date != start_alert_report.date()]
+            # print(f"\nstart_alert : {start_alert}\n")
+            # print(f"end_alert : {end_alert}\n")
+            # print(f"start_alert_report : {start_alert_report}\n")
+            # print(f"end_alert_report : {end_alert_report}\n")
+            # print(f"alert_df : {alert_df}\n")
+            # print(f"not_alert : {not_alert}\n\n")
+            ts_size = len(pd.date_range(start_alert_report, end_alert_report, freq='15min'))
+            if len(alert_df.index) > (ts_size / 2) and len(alert_df.index) <= ts_size:
+                # print("ENTERED !")
+                # Sum for the alert and outside the alert
+                sum_not_alert = not_alert['p_cons'].sum()
+                sum_alert = alert_df['p_cons'].sum()
+                # Mean during the alert and outside the alert
+                mean_not_alert = not_alert['p_cons'].mean()
+                mean_alert = alert_df['p_cons'].mean()
+                # Compute global mean
+                global_mean = (
+                    (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+                )
+                # Register the percentage of reduction
+                matrix[index_i][alert_idx + (i * (j + 1))] = (
+                    ((mean_alert - mean_not_alert) / global_mean)
+                    * 100
+                )
+                # Register the total sum of energy consumption in kWh
+                sum_alerts[alert_idx + (i * (j + 1))] += (
+                    (sum_alert - (sum_not_alert * len(alert_df) / len(not_alert.index)))
+                    / (REPORTS_HOURS[j].total_seconds() / 3600)
+                )
 
 
 def non_contiguous_data(

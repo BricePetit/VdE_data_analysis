@@ -211,8 +211,7 @@ def compute_alert_reaction() -> NoReturn:
         print("--------------Computing Alerts--------------")
         path = RESAMPLED_FOLDER + '/' + community
         # For all file in the data folder
-        i = -1
-        previous_file = []
+        i = 0
         for file in sorted(os.listdir(path)):
             print(f"---------------{file[:6]}---------------")
             df = pd.read_csv(path + '/' + file)
@@ -221,19 +220,14 @@ def compute_alert_reaction() -> NoReturn:
             df = df[df['p_cons'] > 0]
             # Find if a house reacted to the message
             if community == "CDB" and file[:6] in ALL_CDB:
-                if file[:6] not in previous_file:
-                    previous_file.append(file[:6])
-                    i += 1
                 find_reaction_report(
                     df, ALERTS_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i
                 )
             elif community == "ECH" and file[:6] in ALL_ECH:
-                if file[:6] not in previous_file:
-                    previous_file.append(file[:6])
-                    i += 1
                 find_reaction_report(
                     df, ALERTS_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i
                 )
+            i += 1
     # Take all home ids and add (%)
     cdb_home_id = [f + ' (%)' for f in ALL_CDB]
     ech_home_id = [f + ' (%)' for f in ALL_ECH]
