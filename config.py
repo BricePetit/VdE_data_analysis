@@ -88,6 +88,9 @@ AGGREGATION: bool = False
 # True if we want to verify reactions
 REACTION: bool = False
 
+# True if you want to compute the auto consumption
+AUTO_CONSUMPTION: bool = False
+
 # Name of communities
 COMMUNITY_NAME: List[str] = ["CDB", "ECH"]
 

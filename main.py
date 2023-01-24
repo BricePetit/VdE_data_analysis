@@ -8,7 +8,7 @@ import multiprocessing
 import os
 import pandas as pd
 import pytz
-from typing import NoReturn, List
+from typing import NoReturn, List, Optional
 
 from plot_load_curves import (
     plot_average_community,
@@ -57,6 +57,8 @@ from config import (
     PLOT_MEDIAN_QUANTILE_RTU,
     MEAN_WED_FLUKSO,
     MEAN_WED_RTU,
+    # Constants for the autoc onsumption
+    AUTO_CONSUMPTION,
     # Variables for CDB
     REPORT_CDB,
     ALL_CDB,
@@ -396,6 +398,138 @@ def all_plots() -> NoReturn:
         plot_rtu()
 
 
+def compute_auto_consumption(
+    df: pd.DataFrame,
+    month: int,
+    columns: List[str],
+    df_common: Optional[pd.DataFrame] = None
+) -> pd.DataFrame:
+    """
+    Function to compute the auto consumption, the total consumption and
+    the total production during a month.
+
+    :param df:          DataFrame with data where we need a column 'ts', 'day', 'p_cons', 'p_prod'.
+    :param month:       The number of the month (January is 1 and december is 12).
+    :param columns:     List with the name of columns.
+    :param df_common:   DataFrame of the common in ECH. If CDB = None.
+
+    :return:            Return a Tuple with the percentage of auto consumption, the total
+                        consumption and the total production.
+    """
+    months_list = [
+        'Janvier', 'Février', 'Mars', 'Avril',
+        'Mai', 'Juin', 'Juillet', 'Aout',
+        'Septembre', 'Octobre', 'Novembre', 'Decembre'
+    ]
+    # Convert the ts in datetime to manipulate it.
+    df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+    # Consider the month that we want to compute
+    work_df = df[(df['ts'].dt.month == month)]
+    # Check if we are in the case of the ECH or not
+    if df_common is not None:
+        df_common['ts'] = pd.to_datetime(df_common['ts'], utc=True).dt.tz_convert(TZ)
+        df_common = df_common[df_common['ts'].dt.month == month]
+        work_df['p_prod'] = work_df['p_prod'].add(df_common['p_prod'], fill_value=0)
+        work_df['p_cons'] = work_df['p_cons'].add(df_common['p_cons'], fill_value=0)
+    # Keep only periods where the production is negative meaning that there is a production.
+    work_df = work_df[work_df["p_prod"] < 0]
+    # Keep only periods where the consumption is positive (remove errors).
+    work_df = work_df[work_df["p_cons"] > 0]
+    # Compute the consumption according to the production. If the production is lower than
+    # the consumption we add the production because we need it for the auto consumption and
+    # we don't care about the extra consumption. Else, we add the consumption. (Conditional sum)
+    p_cons = (
+        work_df[work_df['p_cons'] <= -work_df['p_prod']]['p_cons'].sum()
+        + (-1 * work_df[work_df['p_cons'] > -work_df['p_prod']]['p_prod']).sum()
+    )
+    # Compute the sum for the production.
+    p_prod = work_df['p_prod'].sum()
+    # Compute the auto consumption.
+    percentage_auto_consumption = (p_cons / (p_prod if p_prod != 0 else 1)) * 100
+    percentage_auto_consumption = (
+        percentage_auto_consumption * -1
+        if percentage_auto_consumption < 0 else percentage_auto_consumption
+    )
+    # percentage_auto_consumption
+    return pd.DataFrame(
+        [[months_list[month - 1], percentage_auto_consumption, p_cons, p_prod]],
+        columns=columns
+    )
+
+
+def auto_consumption() -> NoReturn:
+    """
+    Function to apply the auto consumption for CDB and ECH and then,
+    we save results in a excel file with the following style.
+
+    CDBXXX      | Auto consumption | total consumption | total production |
+    January     |        x         |         x         |         X        |
+    February    |        x         |         x         |         X        |
+    April       |        x         |         x         |         X        |
+    May         |        x         |         x         |         X        |
+    July        |        x         |         x         |         X        |
+    August      |        x         |         x         |         X        |
+    October     |        x         |         x         |         X        |
+    December    |        x         |         x         |         X        |
+    CDBYYY      | Auto consumption | total consumption | total production |
+    January     |        x         |         x         |         X        |
+    February    |        x         |         x         |         X        |
+    April       |        x         |         x         |         X        |
+    May         |        x         |         x         |         X        |
+    July        |        x         |         x         |         X        |
+    August      |        x         |         x         |         X        |
+    October     |        x         |         x         |         X        |
+    December    |        x         |         x         |         X        |
+    """
+    columns = ['Month', 'Autoconsommation', 'consommation totale', 'production totale']
+    print("--------------------Computing autoconsumption...--------------------")
+    res = pd.DataFrame(columns=columns)
+    print("--------------------CDB--------------------")
+    for house in ALL_CDB:
+        print(f"--------------------{house}--------------------")
+        df = pd.read_csv(f"{RESAMPLED_FOLDER}/CDB/{house}_15min.csv")
+        res = pd.concat(
+            [
+                res,
+                pd.DataFrame(
+                    [[
+                        f'{house}', 'Autoconsommation',
+                        'consommation totale', 'production totale'
+                    ]],
+                    columns=columns
+                )
+            ]
+        )
+        for month in [1, 2, 4, 5, 7, 8, 10, 11]:
+            res = pd.concat([res, compute_auto_consumption(df, month, columns)])
+    print("--------------------Computing of autoconsumption finished !--------------------")
+    print("--------------------Saving file...--------------------")
+    res.to_excel(excel_writer="plots/CDB_auto_consumption.xlsx", index=False)
+    print("--------------------Save complete !--------------------")
+    print("--------------------ECH--------------------")
+    res = pd.DataFrame(columns=columns)
+    common_df = pd.DataFrame()
+    for common in ['ECHASC', 'ECHBUA', 'ECHCOM']:
+        common_df = pd.concat(
+            [common_df, pd.read_csv(f"{DATASET_FOLDER}/ECH/{common}.csv")]
+        )
+    common_df = common_df.groupby('ts').sum(numeric_only=True).reset_index()
+    df_echs = pd.DataFrame()
+    for house in ALL_ECH:
+        print(f"--------------------{house}--------------------")
+        df_echs = pd.concat(
+            [df_echs, pd.read_csv(f"{DATASET_FOLDER}/ECH/{common}.csv")]
+        )
+    df_echs = df_echs.groupby('ts').sum(numeric_only=True).reset_index()
+    for month in [1, 2, 4, 5, 7, 8, 10, 11]:
+        res = pd.concat([res, compute_auto_consumption(df_echs, month, columns, common_df)])
+    print("--------------------Computing of autoconsumption finished !--------------------")
+    print("--------------------Saving file...--------------------")
+    res.to_excel(excel_writer="plots/CDB_auto_consumption.xlsx", index=False)
+    print(res)
+    print("--------------------Save complete !--------------------")
+
+
 def main() -> NoReturn:
     """
     Main function
@@ -427,6 +561,10 @@ def main() -> NoReturn:
     # Plot
     if PLOT:
         all_plots()
+
+    # Compute the auto consumption
+    if AUTO_CONSUMPTION:
+        auto_consumption()
 
 
 if __name__ == "__main__":
