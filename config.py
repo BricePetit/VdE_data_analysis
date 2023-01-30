@@ -27,11 +27,17 @@ FLUKSO: bool = False
 # True if we want to manage RTU data
 RTU: bool = False
 
+# Path where we save data
+NEXT_CLOUD: str = '/Users/bricepetitulb/Nextcloud/VdE/'
+
 # Name of the folder where the dataset is located
-DATASET_FOLDER: str = 'dataset'
+DATASET_FOLDER: str = f"{NEXT_CLOUD}/dataset"
 
 # Name of the folder where the resampled dataset is located
-RESAMPLED_FOLDER: str = 'resampled_data'
+RESAMPLED_FOLDER: str = f"{NEXT_CLOUD}/resampled_data"
+
+# Path to plot data
+PLOT_PATH: str = f"{NEXT_CLOUD}/plots"
 
 # True if we want to manage the data
 MANAGE_DATA: bool = False
@@ -50,6 +56,9 @@ RESAMPLE_RTU: bool = False
 
 # Set to True if you want to enter in the function to plot
 PLOT: bool = False
+
+# Set to True if you want to plot the average over house
+PLOT_AVERAGE: bool = False
 
 # Set to True if you want to apply and plot the median, first & third quantile for the RTU
 PLOT_MEDIAN_QUANTILE_RTU: bool = False
@@ -90,6 +99,9 @@ REACTION: bool = False
 
 # True if you want to compute the auto consumption
 AUTO_CONSUMPTION: bool = False
+
+# True if we want to create a file where we describe if we use data for each ts.
+CHECK_DATES: bool = False
 
 # Name of communities
 COMMUNITY_NAME: List[str] = ["CDB", "ECH"]
@@ -137,6 +149,9 @@ ALL_CDB: List[str] = [
     'CDB051', 'CDB054', 'CDB059'
 ]
 
+# List of commons in ECH
+ALL_COMMON: List[str] = ['ECHBUA', 'ECHASC', 'ECHCOM']
+
 # List of all considered data for the ECH in the report
 REPORT_ECH: List[str] = [
     'ECHL01', 'ECHL04', 'ECHL05',
@@ -148,7 +163,8 @@ REPORT_ECH: List[str] = [
 ALL_ECH: List[str] = [
     'ECHL01', 'ECHL04', 'ECHL05', 'ECHL06',
     'ECHL07', 'ECHL08', 'ECHL11', 'ECHL12',
-    'ECHL13', 'ECHL15', 'ECHL16', 'ECHL17', 'ECHL2A'
+    'ECHL13', 'ECHL15', 'ECHL16', 'ECHL17',
+    'ECHL2A',
 ]
 
 # Matrix containing result of report and reaction

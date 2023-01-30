@@ -34,6 +34,7 @@ from config import (
     # Constants for path
     DATASET_FOLDER,
     RESAMPLED_FOLDER,
+    PLOT_PATH,
     # Constants for the name of communities
     COMMUNITY_NAME,
     # Constants for the data management
@@ -42,6 +43,7 @@ from config import (
     VERIFY_CONSUMPTION,
     RESAMPLE,
     RESAMPLE_RTU,
+    CHECK_DATES,
     # Constants for reactions of messages
     REACTION,
     # Constants for the plotting
@@ -49,6 +51,7 @@ from config import (
     SEC8,
     BASIC_PLOT,
     AREA_PLOT,
+    PLOT_AVERAGE,
     AVERAGE_COMMUNITY,
     AVERAGE_COMMUNITIES,
     AGGREGATION,
@@ -234,10 +237,10 @@ def compute_alert_reaction() -> NoReturn:
 
     # Export MATRIX_ALERTS_CDB or MATRIX_ALERTS_ECH in excel files
     export_to_XLSX(
-        MATRIX_ALERTS_CDB, cdb_home_id, ALERTS_CDB, SUM_ALERTS_CDB, "plots/alerts_cdb.xlsx"
+        MATRIX_ALERTS_CDB, cdb_home_id, ALERTS_CDB, SUM_ALERTS_CDB, f"{PLOT_PATH}/alerts_cdb.xlsx"
     )
     export_to_XLSX(
-        MATRIX_ALERTS_ECH, ech_home_id, ALERTS_ECH, SUM_ALERTS_ECH, "plots/alerts_ech.xlsx"
+        MATRIX_ALERTS_ECH, ech_home_id, ALERTS_ECH, SUM_ALERTS_ECH, f"{PLOT_PATH}/alerts_ech.xlsx"
     )
 
 
@@ -248,22 +251,18 @@ def plot_average(current_folder: str, fmt: str) -> NoReturn:
     :param current_folder:  Current folder where we are working (dataset or resample_dataset).
     :param fmt:             Data format.
     """
-    starting = dt.datetime(2022, 11, 7, 0, 0, 0).astimezone()
-    ending = dt.datetime(2022, 11, 14, 23, 59, 59).astimezone()
+    starting = dt.datetime(2022, 12, 16, 0, 0, 0).astimezone()
+    ending = dt.datetime(2022, 12, 16, 23, 59, 59).astimezone()
     # Plot an average for a given date for a community
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
-        plot_average_community(
-            starting, ending, current_folder, 5, fmt
-        )
-        plot_average_community(
-            starting, ending, current_folder, 11, fmt
-        )
+        for i in [5, 10, 15, 20, 25, 30]:
+            plot_average_community(starting, ending, current_folder, i, fmt)
 
     # Plot the average communities together
     if AVERAGE_COMMUNITIES:
         print("--------------Plotting average through communities--------------")
-        for nb_selected_house in [5, 10, 15, 20]:
+        for nb_selected_house in [5, 10, 15, 20, 25, 30, 35, 40, 45]:
             print(f"--------------{nb_selected_house} selected houses--------------")
             average_through_community(
                 starting, ending, current_folder, nb_selected_house, fmt
@@ -295,10 +294,10 @@ def plot_flukso() -> NoReturn:
                 ending = dt.datetime(2022, 5, 17, 23, 59, 59).astimezone()
                 # Select the correct path according to the format (15min or 8S (for 8sec))
                 if SEC8:
-                    path = f"plots/{community}/{home_id}"
+                    path = f"{PLOT_PATH}/{community}/{home_id}"
                     cdt = True
                 else:
-                    path = f"plots/{community}/{home_id}"
+                    path = f"{PLOT_PATH}/{community}/{home_id}"
                     cdt = int(file[12:14]) == starting.month and int(file[7:11]) == starting.year
                 if cdt and file[:6] not in [
                     'ECHA01', 'ECHASC', 'ECHBUA', 'ECHCOM', 'ECHL09', 'ECHL17'
@@ -312,12 +311,13 @@ def plot_flukso() -> NoReturn:
                     if BASIC_PLOT:
                         plot_data(
                             df, path, starting, ending,
-                            f'Home: {home_id}', 'multiple_flukso', fmt
+                            f'Home: {home_id}', 'multiple_flukso',
+                            f"{home_id}_{starting}_{ending}_{fmt}"
                         )
                     elif AREA_PLOT:
                         plot_data(
                             df, path, starting, ending,
-                            f'Home: {home_id}', 'flukso', fmt
+                            f'Home: {home_id}', 'flukso', f"{home_id}_{starting}_{ending}_{fmt}"
                         )
     plot_average(current_folder, fmt)
 
@@ -329,12 +329,15 @@ def plot_rtu() -> NoReturn:
     if PLOT_MEDIAN_QUANTILE_RTU:
         df = pd.read_csv(f"{RESAMPLED_FOLDER}/RTU/rtu_15min.csv")
         df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
-        plot_median_quantile_rtu(df, 'plots/RTU')
+        plot_median_quantile_rtu(df, f'{PLOT_PATH}/RTU')
     if PLOT_RANGE_RTU:
         df = pd.read_csv(RESAMPLED_FOLDER + '/RTU_REPORT/rtu_2022-12_15min.csv')
         starting = dt.datetime(2022, 12, 21, 0, 0, 0).astimezone()
         ending = dt.datetime(2022, 12, 21, 23, 59, 59).astimezone()
-        plot_data(df, 'plots/RTU', starting, ending, 'Cabine basse tension', 'rtu')
+        plot_data(
+            df, f'{PLOT_PATH}/RTU', starting, ending, 'Cabine basse tension',
+            'rtu', f"rtu_{starting}_{ending}"
+        )
     if MEAN_WED_RTU:
         time_series = (
             pd.date_range("00:00:00", freq='15min', periods=96)
@@ -347,7 +350,7 @@ def plot_rtu() -> NoReturn:
         df = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
         not_during_light = df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
         mean = df.groupby(not_during_light['ts'].dt.time).mean(numeric_only=True)
-        rtu_plot(mean, time_series, 'plots/RTU', 'Mean wednesday RTU')
+        rtu_plot(mean, time_series, f'{PLOT_PATH}/RTU', 'Mean wednesday RTU')
 
 
 def all_plots() -> NoReturn:
@@ -356,22 +359,32 @@ def all_plots() -> NoReturn:
     """
     if FLUKSO:
         if PLOT_MEDIAN_QUANTILE_FLUKSO:
+            print("----------Ploting quantiles----------")
+            print("----------CDB----------")
             for cdb in REPORT_CDB:
+                print(f"----------{cdb}----------")
                 df = pd.read_csv(f"{RESAMPLED_FOLDER}/CDB/{cdb}_15min.csv")
                 # Add correct datetime with timezone.
                 df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 df = df[df['p_cons'] > 0]
                 plot_median_quantile_flukso(
-                    df, f"{RESAMPLED_FOLDER}/CDB", f"plots/CDB/{cdb}"
+                    df, f"{PLOT_PATH}/CDB/{cdb}"
                 )
-
+            print("----------ECH----------")
             for ech in REPORT_ECH:
+                print(f"----------{ech}----------")
                 df = pd.read_csv(f"{RESAMPLED_FOLDER}/ECH/{ech}_15min.csv")
                 # Add correct datetime with timezone.
                 df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 plot_median_quantile_flukso(
-                    df, f"{RESAMPLED_FOLDER}/ECH", f"plots/ECH/{ech}"
+                    df, f"{PLOT_PATH}/ECH/{ech}"
                 )
+
+        if PLOT_AVERAGE:
+            fmt = '8S' if SEC8 else '15min'
+            current_folder = DATASET_FOLDER if SEC8 else RESAMPLED_FOLDER
+            plot_average(current_folder, fmt)
+
         if MEAN_WED_FLUKSO:
             for cdb in ALL_CDB:
                 time_series = (
@@ -384,10 +397,10 @@ def all_plots() -> NoReturn:
                 df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 df = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
                 df = df[df['p_cons'] > 0]
-                df = df.resample('15min', on='ts').mean().reset_index()
+                df = df.resample('15min', on='ts').mean(numeric_only=True).reset_index()
                 not_during_light = df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
                 mean = df.groupby(not_during_light['ts'].dt.time).mean(numeric_only=True)
-                flukso_plot(mean, time_series, f"plots/CDB/{cdb}", f"Mean wednesday {cdb}")
+                flukso_plot(mean, time_series, f"{PLOT_PATH}/CDB/{cdb}", f"Mean wednesday {cdb}")
     if RTU:
         plot_rtu()
 
@@ -407,7 +420,7 @@ def compute_auto_consumption(
     :param columns:     List with the name of columns.
     :param df_common:   DataFrame of the common in ECH. If CDB = None.
 
-    :return:            Return a Tuple with the percentage of auto consumption, the total
+    :return:            Return a DataFrame with the percentage of auto consumption, the total
                         consumption and the total production.
     """
     months_list = [
@@ -498,7 +511,7 @@ def auto_consumption() -> NoReturn:
             res = pd.concat([res, compute_auto_consumption(df, month, columns)])
     print("--------------------Computing of autoconsumption finished !--------------------")
     print("--------------------Saving file...--------------------")
-    res.to_excel(excel_writer="plots/CDB_auto_consumption.xlsx", index=False)
+    res.to_excel(excel_writer=f"{PLOT_PATH}/CDB_auto_consumption.xlsx", index=False)
     print("--------------------Save complete !--------------------")
     print("--------------------ECH--------------------")
     res = pd.DataFrame(columns=columns)
@@ -519,14 +532,44 @@ def auto_consumption() -> NoReturn:
         res = pd.concat([res, compute_auto_consumption(df_echs, month, columns, common_df)])
     print("--------------------Computing of autoconsumption finished !--------------------")
     print("--------------------Saving file...--------------------")
-    res.to_excel(excel_writer="plots/CDB_auto_consumption.xlsx", index=False)
+    res.to_excel(excel_writer=f"{PLOT_PATH}/ECH_auto_consumption.xlsx", index=False)
     print(res)
     print("--------------------Save complete !--------------------")
 
 
-def main() -> NoReturn:
+def check_empty_date() -> NoReturn:
     """
-    Main function
+    Function to info which data are used and which aren't used.
+    """
+    print("--------------------Creating file with state of data...--------------------")
+    for community in COMMUNITY_NAME:
+        final_df = pd.DataFrame()
+        columns = []
+        print(f"--------------------{community}--------------------")
+        for home in sorted(os.listdir(RESAMPLED_FOLDER + '/' + community)):
+            print(f"--------------------{home[:6]}--------------------")
+            df = pd.read_csv(f"{RESAMPLED_FOLDER}/{community}/{home}")
+            df['ts'] = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+            df = df.resample('15min', on='ts').mean(numeric_only=True).reset_index()
+            ts = (
+                pd.concat(
+                    [df['ts'].dt.tz_localize(None), ((df['p_cons'] >= 0) & (df['p_prod'] <= 0))],
+                    axis=1
+                )
+            )
+            columns += [home[:6], 'utilisé']
+            final_df = pd.concat([final_df, ts], axis=1, ignore_index=True)
+        final_df.columns = columns
+        final_df.to_excel(
+            excel_writer=f"{PLOT_PATH}/{community}_state.xlsx",
+            index=False
+        )
+    print("--------------------Done !--------------------")
+
+
+def manage_date():
+    """
+    Function to manage data.
     """
     # Manage the data (e.g. resample, etc.)
     if MANAGE_DATA:
@@ -548,6 +591,13 @@ def main() -> NoReturn:
         # yearly or monthly
         concat_data(columns_name, "yearly")
 
+
+def main() -> NoReturn:
+    """
+    Main function
+    """
+    manage_date()
+
     # Compute and show the information about the alert
     if REACTION:
         compute_alert_reaction()
@@ -559,6 +609,9 @@ def main() -> NoReturn:
     # Compute the auto consumption
     if AUTO_CONSUMPTION:
         auto_consumption()
+
+    if CHECK_DATES:
+        check_empty_date()
 
 
 if __name__ == "__main__":

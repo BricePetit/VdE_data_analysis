@@ -5,7 +5,10 @@ __license__ = "MIT"
 
 from config import (
     COMMUNITY_NAME,
-    SEC8
+    SEC8,
+    PLOT_PATH,
+    ALL_ECH,
+    ALL_CDB
 )
 
 
@@ -15,7 +18,7 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import random
-from typing import NoReturn, Optional, List
+from typing import NoReturn, Optional, List, Tuple
 
 
 # ---------------------------------- #
@@ -28,9 +31,8 @@ def create_average_df(
     ending: dt.datetime,
     current_folder: str,
     all_files: List[str],
-    house_nb: int,
-    fmt: str
-) -> pd.DataFrame:
+    house_nb: int
+) -> Tuple[pd.DataFrame, List[int]]:
     """
     Function to create an average DataFrame over a period.
 
@@ -39,7 +41,6 @@ def create_average_df(
     :param current_folder:  The folder where we need to consider data.
     :param all_files:       List of houses.
     :param house_nb:        Number of house to apply the average.
-    :param fmt:             Format used to generate indexes. '15min' or '8S'.
 
     :return:                Return the averaged dataframe.
     """
@@ -51,37 +52,23 @@ def create_average_df(
     chosen_house = random.sample(range(0, len(all_files)), house_nb)
     # For each selected house
     for house in chosen_house:
+        print(f'--------------{all_files[house]}--------------')
         if SEC8:
             # Read the file and create a dataframe
-            df = pd.read_csv(
-                current_folder + '/' + all_files[house][:3] + '/' + all_files[house] + '.csv'
-            )
+            df = pd.read_csv(f"{current_folder}/{all_files[house][:3]}/{all_files[house]}.csv")
         else:
             # Read the file and create a dataframe
             df = pd.read_csv(
-                current_folder + '/' + all_files[house][:3] + '/' + all_files[house] + '_'
-                + starting[:4] + '_' + starting[6] + '_' + fmt + '.csv'
+                f"{current_folder}/{all_files[house][:3]}/{all_files[house]}_15min.csv"
             )
+        df
         # Query the period on the dataframe.
-        week = df.query("ts >= \"" + starting + "\" and ts <= \"" + ending + "\"")
-        # We check if the new dataframe is not empty
-        if new_df.size != 0:
-            # Add all interesting value to the final dataframe
-            new_df['p_cons'] = new_df['p_cons'] + week['p_cons'].values
-            new_df['p_prod'] = new_df['p_prod'] + week['p_prod'].values
-            new_df['p_tot'] = new_df['p_tot'] + week['p_tot'].values
-        else:
-            # Initialize the dataframe in the case where it is empty
-            new_df = pd.DataFrame({
-                'ts': week['ts'], 'p_cons': week['p_cons'],
-                'p_prod': week['p_prod'], 'p_tot': week['p_tot']
-            })
-    # Divide all values by the number of house in the community
-    new_df['p_cons'] = new_df['p_cons'] / house_nb
-    new_df['p_prod'] = new_df['p_prod'] / house_nb
-    new_df['p_tot'] = new_df['p_tot'] / house_nb
-
-    return new_df
+        week = df.query(f"ts >= '{starting}' and ts <= '{ending}'")
+        # Concat all houses
+        new_df = pd.concat([new_df, week])
+    # Apply the mean
+    new_df = new_df.groupby('ts').mean(numeric_only=True).reset_index()
+    return new_df, chosen_house
 
 
 def plot_average_community(
@@ -104,32 +91,27 @@ def plot_average_community(
     # For file in the folder resampled folder
     for community in COMMUNITY_NAME:
         # Name of all houses that are taken into consideration
-        house_name = ""
         if community == 'ECH':
-            all_files = [
-                'ECHL01', 'ECHL05', 'ECHL07',
-                'ECHL08', 'ECHL11', 'ECHL12',
-                'ECHL13', 'ECHL15', 'ECHL16'
-            ]
+            house_name = "ECH_"
+            all_files = ALL_ECH
         else:
-            all_files = [
-                'CDB002', 'CDB006', 'CDB008',
-                'CDB009', 'CDB011', 'CDB014',
-                'CDB030', 'CDB033', 'CDB036',
-                'CDB042', 'CDB043'
-            ]
-        if community == "ECH" and house_nb > 19:
-            house_nb = len(all_files)
-        elif community == "CDB" and house_nb > 28:
+            house_name = "ECH_"
+            all_files = ALL_CDB
+        if house_nb > len(all_files):
             house_nb = len(all_files)
         # All files in the dataset
         # all_files = [f for f in os.listdir(DATASET_FOLDER + '/' + community)]
         # Temporary files that we want to use
-        new_df = create_average_df(starting, ending, current_folder, all_files, house_nb, fmt)
+        new_df, selected_houses = create_average_df(
+            starting, ending, current_folder, all_files, house_nb
+        )
+        for i in selected_houses:
+            house_name += all_files[i][-3:] + '_'
         # Plot the results
         plot_data(
-            new_df, f"plots/{community}/average_community", starting, ending,
-            f"average_{community}_{house_nb}_{house_name}", 'multiple_flukso', fmt
+            new_df, f"{PLOT_PATH}/{community}/average_community", starting, ending,
+            f"average in {community} over {house_nb} houses", 'flukso',
+            f"average_{community}_{house_nb}_{house_name}"
         )
 
 
@@ -153,23 +135,15 @@ def average_through_community(
     # All files in the dataset
     # all_files = [f for f in os.listdir(DATASET_FOLDER + '/ECH')]
     # all_files.append([f for f in os.listdir(DATASET_FOLDER + '/CDB')])
-    all_files = [
-        'ECHL01', 'ECHL05', 'ECHL07',
-        'ECHL08', 'ECHL11', 'ECHL12',
-        'ECHL13', 'ECHL15', 'ECHL16',
-        'CDB002', 'CDB006', 'CDB008',
-        'CDB009', 'CDB011', 'CDB014',
-        'CDB030', 'CDB033', 'CDB036',
-        'CDB042', 'CDB043'
-    ]
+    all_files = ALL_CDB + ALL_ECH
     # Check if the size exceed the number of files.
     if house_nb > len(all_files):
         house_nb = len(all_files)
-    new_df = create_average_df(starting, ending, current_folder, all_files, house_nb, fmt)
+    new_df, _ = create_average_df(starting, ending, current_folder, all_files, house_nb)
     # Plot the results
     plot_data(
-        new_df, "plots/average_community_CDB_ECH", starting, ending,
-        f"{house_nb}_selected_houses", 'multiple_flukso', fmt
+        new_df, f"{PLOT_PATH}/average_community_CDB_ECH", starting, ending,
+        f"{house_nb} selected houses", 'flukso', f"{house_nb}_selected_houses"
     )
 
 
@@ -192,10 +166,10 @@ def plot_aggregation(
             all_files = ['ECHBUA', 'ECHASC', 'ECHCOM']
         else:
             all_files = ['CDBA01', 'CDBA02']
-        new_df = create_average_df(starting, ending, current_folder, all_files, len(all_files), fmt)
+        new_df, _ = create_average_df(starting, ending, current_folder, all_files, len(all_files))
         plot_data(
-            new_df, f"plots/{community}", starting, ending,
-            'Aggregation', 'multiple_flukso', fmt
+            new_df, f"{PLOT_PATH}/{community}", starting, ending,
+            'Aggregation', 'multiple_flukso'
         )
 
 
@@ -400,7 +374,7 @@ def plot_data(
     ending: dt.datetime,
     title: str,
     plot_type: str,
-    fmt: str = '15min'
+    file_name: str,
 ) -> NoReturn:
     """
     Plot all curves according to the starting and ending date. Plot also areas
@@ -466,14 +440,7 @@ def plot_data(
     if not os.path.exists(path):
         os.makedirs(path)
     # Save the fig
-    if plot_type == "rtu":
-        fig.savefig(
-            f"{path}/RTU_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
-        )
-    else:
-        fig.savefig(
-            f"{path}/{df.at[0, 'home_id']}_{str_starting[:-15]}_{str_ending[:-15]}_{fmt}.png"
-        )
+    fig.savefig(f"{path}/{file_name}.png")
     plt.close()
 
 
@@ -564,8 +531,6 @@ def plot_median_quantile_flukso(df: pd.DataFrame, plot_path: str) -> NoReturn:
     :param df:              DataFrame.
     :param current_home:    List of all file for the home.
     """
-    print(df['home_id'].iloc[0])
-    print(df)
     # Create a series
     time_series = (
         pd.date_range("00:00:00", freq='15min', periods=96)
