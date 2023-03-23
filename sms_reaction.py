@@ -23,8 +23,8 @@ from typing import NoReturn, List, Tuple
 def find_reaction_report(
     df: pd.DataFrame,
     alerts: pd.DataFrame,
-    matrix,
-    sum_alerts,
+    matrix: np.NDArray[np.float64],
+    sum_alerts: np.NDArray[np.float64],
     index: int
 ) -> NoReturn:
     """
@@ -37,40 +37,40 @@ def find_reaction_report(
     :param index:       The index of the home.
     """
     for i in range(len(alerts.index)):
-        start_alert = (
+        start_alert: dt.datetime = (
             dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][1])).astimezone()
         )
-        end_alert = (
+        end_alert: dt.datetime = (
             dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[i][2])).astimezone()
         )
-        nb_hours = ((end_alert - start_alert) / 3600).seconds
-        nb_delta_alert = len(REPORTS_HOURS)
-        alert_idx = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
+        nb_hours: int = ((end_alert - start_alert) / 3600).seconds
+        nb_delta_alert: int = len(REPORTS_HOURS)
+        alert_idx: int = (i * 2 * nb_delta_alert) + (i + nb_delta_alert)
         # Group according to day of the week, 0 is Monday.
-        grouped_df = df.groupby(df['ts'].dt.weekday)
+        grouped_df: pd._DataFrameGroupByNonScalar = df.groupby(df['ts'].dt.weekday)
         # Take the correct group according to the day of the alert.
-        days_df = grouped_df.get_group(start_alert.weekday())
+        days_df: pd.DataFrame = grouped_df.get_group(start_alert.weekday())
         # Keep only the period of the alert.
-        days_df = (
+        days_df: pd.DataFrame = (
             days_df[
                 (start_alert.time() <= days_df['ts'].dt.time)
                 & (days_df['ts'].dt.time < end_alert.time())
             ]
         )
         # Take the day of the alert and keep others
-        alert_df = days_df[days_df['day'].dt.date == start_alert.date()]
+        alert_df: pd.DataFrame = days_df[days_df['day'].dt.date == start_alert.date()]
         # Remove the day of the alert and keep others
-        not_alert = days_df[days_df['day'].dt.date != start_alert.date()]
+        not_alert: pd.DataFrame = days_df[days_df['day'].dt.date != start_alert.date()]
         ts_size = len(pd.date_range(start_alert, end_alert, freq='15min'))
         if len(alert_df.index) > (ts_size / 2) and len(alert_df.index) <= ts_size:
             # Sum for alert and non alert data
-            sum_alert = alert_df['p_cons'].sum()
-            sum_not_alert = not_alert['p_cons'].sum()
+            sum_alert: float = alert_df['p_cons'].sum()
+            sum_not_alert: float = not_alert['p_cons'].sum()
             # Mean for alert and non alert data
-            mean_alert = alert_df['p_cons'].mean()
-            mean_not_alert = not_alert['p_cons'].mean()
+            mean_alert: float = alert_df['p_cons'].mean()
+            mean_not_alert: float = not_alert['p_cons'].mean()
             # Combined mean
-            global_mean = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+            global_mean: float = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
             # Compute the percentages
             matrix[index][alert_idx] = (
                 ((mean_alert - mean_not_alert) / global_mean)
@@ -90,11 +90,11 @@ def find_reaction_report(
 
 def find_report(
     df: pd.DataFrame,
-    matrix,
-    sum_alerts,
+    matrix: np.NDArray[np.float64],
+    sum_alerts: np.NDArray[np.float64],
     index_i: int,
-    start_alert,
-    end_alert,
+    start_alert: dt.datetime,
+    end_alert: dt.datetime,
     nb_delta_alert: int,
     alert_idx: int
 ) -> NoReturn:
@@ -115,70 +115,64 @@ def find_report(
         # For each delta time
         for j in range(nb_delta_alert):
             if i == -1:
-                start_alert_report = start_alert - REPORTS_HOURS[j]
-                end_alert_report = start_alert
+                start_alert_report: dt.datetime = start_alert - REPORTS_HOURS[j]
+                end_alert_report: dt.datetime = start_alert
             else:
-                start_alert_report = end_alert
-                end_alert_report = end_alert + REPORTS_HOURS[j]
+                start_alert_report: dt.datetime = end_alert
+                end_alert_report: dt.datetime = end_alert + REPORTS_HOURS[j]
             # Group according to day of the week, 0 is Monday.
-            grouped_df = df.groupby(df['ts'].dt.weekday)
+            grouped_df: pd.DataFrame = df.groupby(df['ts'].dt.weekday)
             # Take the correct group according to the day of the alert.
             if start_alert_report.weekday() != end_alert_report.weekday():
-                day1 = (
+                day1: pd.DataFrame = (
                     df[
                         (df["ts"].dt.weekday == start_alert_report.weekday())
                         & (df["ts"].dt.hour >= start_alert_report.hour)
                         & (df["ts"].dt.hour <= 23)
                     ]
                 )
-                day2 = (
+                day2: pd.DataFrame = (
                     df[
                         (df["ts"].dt.weekday == end_alert_report.weekday())
                         & (df["ts"].dt.hour >= 0)
                         & (df["ts"].dt.hour < end_alert_report.hour)
                     ]
                 )
-                days_df = pd.concat([day1, day2]).sort_values(by='ts')
+                days_df: pd.DataFrame = pd.concat([day1, day2]).sort_values(by='ts')
                 # Take the day of the alert and keep others
-                alert_df = days_df[
+                alert_df: pd.DataFrame = days_df[
                     (days_df['day'].dt.date == start_alert_report.date())
                     | (days_df['day'].dt.date == end_alert_report.date())
                 ]
                 # Remove the day of the alert and keep others
-                not_alert = days_df[
+                not_alert: pd.DataFrame = days_df[
                     (days_df['day'].dt.date != start_alert_report.date())
                     | (days_df['day'].dt.date != end_alert_report.date())
                 ]
             else:
-                days_df = grouped_df.get_group(start_alert_report.weekday())
+                days_df: pd.DataFrame = grouped_df.get_group(start_alert_report.weekday())
                 # Keep only the period of the alert.
-                days_df = (
+                days_df: pd.DataFrame = (
                     days_df[
                         (start_alert_report.time() <= days_df['ts'].dt.time)
                         & (days_df['ts'].dt.time < end_alert_report.time())
                     ]
                 )
                 # Take the day of the alert and keep others
-                alert_df = days_df[days_df['day'].dt.date == start_alert_report.date()]
+                alert_df: pd.DataFrame = days_df[days_df['day'].dt.date == start_alert_report.date()]
                 # Remove the day of the alert and keep others
-                not_alert = days_df[days_df['day'].dt.date != start_alert_report.date()]
-            # print(f"\nstart_alert : {start_alert}\n")
-            # print(f"end_alert : {end_alert}\n")
-            # print(f"start_alert_report : {start_alert_report}\n")
-            # print(f"end_alert_report : {end_alert_report}\n")
-            # print(f"alert_df : {alert_df}\n")
-            # print(f"not_alert : {not_alert}\n\n")
-            ts_size = len(pd.date_range(start_alert_report, end_alert_report, freq='15min'))
+                not_alert: pd.DataFrame = days_df[days_df['day'].dt.date != start_alert_report.date()]
+
+            ts_size: int = len(pd.date_range(start_alert_report, end_alert_report, freq='15min'))
             if len(alert_df.index) > (ts_size / 2) and len(alert_df.index) <= ts_size:
-                # print("ENTERED !")
                 # Sum for the alert and outside the alert
-                sum_not_alert = not_alert['p_cons'].sum()
-                sum_alert = alert_df['p_cons'].sum()
+                sum_not_alert: float = not_alert['p_cons'].sum()
+                sum_alert: float = alert_df['p_cons'].sum()
                 # Mean during the alert and outside the alert
-                mean_not_alert = not_alert['p_cons'].mean()
-                mean_alert = alert_df['p_cons'].mean()
+                mean_not_alert: float = not_alert['p_cons'].mean()
+                mean_alert: float = alert_df['p_cons'].mean()
                 # Compute global mean
-                global_mean = (
+                global_mean: float = (
                     (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
                 )
                 # Register the percentage of reduction
@@ -208,15 +202,15 @@ def non_contiguous_data(
 
     :return:                find, file_name, current_period.
     """
-    find = False
-    file_name = ""
+    find: bool = False
+    file_name: str = ""
     if sign == -1:
         if int(current_period.month) == 10:
             for i in range(len(months_home)):
                 if months_home[i][12:14] == "08":
                     current_period += dt.timedelta(days=7 * 10 * sign)
-                    find = True
-                    file_name = months_home[i]
+                    find: bool = True
+                    file_name: str = months_home[i]
                     del months_home[i]
                     break
     elif sign == 1:
@@ -224,8 +218,8 @@ def non_contiguous_data(
             for i in range(len(months_home)):
                 if months_home[i][12:14] == "11":
                     current_period += dt.timedelta(days=7 * 10 * sign)
-                    find = True
-                    file_name = months_home[i]
+                    find: bool = True
+                    file_name: str = months_home[i]
                     del months_home[i]
                     break
     return find, file_name, current_period

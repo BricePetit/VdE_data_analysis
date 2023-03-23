@@ -8,7 +8,7 @@ import datetime as dt
 import numpy as np
 import os
 import pandas as pd
-from typing import NoReturn
+from typing import NoReturn, List, Dict
 
 
 from config import (
@@ -34,7 +34,9 @@ def check_negative_consumption(df: pd.DataFrame, home_id: str) -> NoReturn:
         print()
 
 
-def resample_dataset(df: pd.DataFrame, path: str, filename: str, agg, fmt='15min') -> NoReturn:
+def resample_dataset(
+    df: pd.DataFrame, path: str, filename: str, agg: Dict[str, str], fmt='15min'
+) -> NoReturn:
     """
     Function to resample data into 15 minutes data.
 
@@ -47,19 +49,25 @@ def resample_dataset(df: pd.DataFrame, path: str, filename: str, agg, fmt='15min
     print(f"--------------------Processing file {filename}--------------------")
     if not os.path.isdir(path):
         os.makedirs(path)
-    df['ts'] = pd.to_datetime(df['ts'], utc=True)
-    df = (
+    df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True)
+    df: pd.DataFrame = (
         df
         .resample(fmt, on='ts')
         .agg(agg)
         .reset_index()
     )
-    df['ts'] = pd.to_datetime(df['ts']).dt.tz_convert(TZ)
+    df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts']).dt.tz_convert(TZ)
     df.to_csv(path + '/' + filename + '_' + fmt + '.csv', index=False)
     print(f"--------------------{filename} saved--------------------")
 
 
-def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name) -> NoReturn:
+def export_to_XLSX(
+    matrix: np.NDArray[np.float64],
+    home_ids: List[str],
+    alerts: pd.DataFrame,
+    sum_alerts: np.NDArray[np.float64],
+    file_name: str
+) -> NoReturn:
     """
     Export the dataframe in a excel file.
 
@@ -71,37 +79,37 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name) -> NoReturn:
     """
     print(f"Exporting data of {home_ids[0][:3]}...")
     # Week of the day
-    weekday = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-    months = [
+    weekday: List[str] = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    months: List[str] = [
         'Janvier', 'Février', 'Mars', 'Avril',
         'Mai', 'Juin', 'Juillet', 'Aout',
         'Septembre', 'Octobre', 'Novembre', 'Decembre'
     ]
     # Create empty list of string
-    alerts_name = ["" for _ in range(len(matrix[0]))]
+    alerts_name: List[str] = ["" for _ in range(len(matrix[0]))]
     # Get the number of delta time used for the report
-    nb_delta_alert = len(REPORTS_HOURS)
+    nb_delta_alert: int = len(REPORTS_HOURS)
     for j in range(len(alerts)):
         # Compute the index according reported values
         # For each alert, we have:
         # A1 -12h | A1 -6h | A1 -3h | A1 | A1 3h | A1 6h | A1 12h |
-        alert_idx = (j * 2 * nb_delta_alert) + (j + nb_delta_alert)
+        alert_idx: int = (j * 2 * nb_delta_alert) + (j + nb_delta_alert)
         # We used the -1 and 1 to go before/after the alert
         for k in [-1, 1]:
             # For each delta time
             for m in range(nb_delta_alert):
                 # Write values Aj -12h | Aj -6h | Aj -3h | Aj 3h | Aj 6h | Aj 12h |
                 # Where j is the number of the alert
-                sep = '' if k == -1 else '+'
+                sep: str = '' if k == -1 else '+'
                 alerts_name[alert_idx + (k * (m + 1))] = (
                     sep + str(int(REPORTS_HOURS[m].seconds / 3600) * k) + 'h'
                 )
             # Write value A
-            str_alert = ""
-            starting_date = (
+            str_alert: str = ""
+            starting_date: dt.datetime = (
                 dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[j][1])).astimezone()
             )
-            ending_date = (
+            ending_date: dt.datetime = (
                 dt.datetime.fromtimestamp(dt.datetime.timestamp(alerts.iloc[j][2])).astimezone()
             )
             str_alert += f"{weekday[starting_date.weekday()]}"
@@ -111,11 +119,11 @@ def export_to_XLSX(matrix, home_ids, alerts, sum_alerts, file_name) -> NoReturn:
 
             alerts_name[alert_idx] = str_alert
     # Create the dataframe with specific indexes and column name
-    df = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
+    df: pd.DataFrame = pd.DataFrame(data=np.array(matrix), index=home_ids, columns=alerts_name)
     # Create a dataframe with the "Bilan"
-    tmp_df = pd.DataFrame(data=[sum_alerts], index=["Bilan en Wh"], columns=alerts_name)
+    tmp_df: pd.DataFrame = pd.DataFrame(data=[sum_alerts], index=["Bilan en Wh"], columns=alerts_name)
     # Concatenate the two dataframes
-    df = pd.concat([df, tmp_df])
+    df: pd.DataFrame = pd.concat([df, tmp_df])
     # Write the dataframe into an xlsx file
     df.to_excel(excel_writer=file_name)
     print("Data exported in the file !")

@@ -19,7 +19,7 @@ from typing import List
 TZ = pytz.timezone('Europe/Brussels')
 
 # Number of workers to parallelize jobs.
-NB_SLAVES = 8
+NB_SLAVES: int = 8
 
 # True if we want to manage flukso data
 FLUKSO: bool = False
@@ -168,20 +168,20 @@ ALL_ECH: List[str] = [
 ]
 
 # Matrix containing result of report and reaction
-MATRIX_ALERTS_CDB = np.zeros((
+MATRIX_ALERTS_CDB: np.NDArray[np.float64] = np.zeros((
     len(ALL_CDB),
     len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB))
 ))
 
-MATRIX_ALERTS_ECH = np.zeros((
+MATRIX_ALERTS_ECH: np.NDArray[np.float64] = np.zeros((
     len(ALL_ECH),
     len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH))
 ))
 
 # List of all consumption during alerts - same period outside alerts
-SUM_ALERTS_CDB = np.zeros(
+SUM_ALERTS_CDB: np.NDArray[np.float64] = np.zeros(
     len(ALERTS_CDB) + (2 * len(REPORTS_HOURS) * len(ALERTS_CDB))
 )
-SUM_ALERTS_ECH = np.zeros(
+SUM_ALERTS_ECH: np.NDArray[np.float64] = np.zeros(
     len(ALERTS_ECH) + (2 * len(REPORTS_HOURS) * len(ALERTS_ECH))
 )
