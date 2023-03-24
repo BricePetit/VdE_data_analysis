@@ -62,10 +62,10 @@ def resample_dataset(
 
 
 def export_to_XLSX(
-    matrix: np.NDArray[np.float64],
+    matrix: np.ndarray[np.float64],
     home_ids: List[str],
     alerts: pd.DataFrame,
-    sum_alerts: np.NDArray[np.float64],
+    sum_alerts: np.ndarray[np.float64],
     file_name: str
 ) -> NoReturn:
     """

@@ -23,8 +23,8 @@ from typing import NoReturn, List, Tuple
 def find_reaction_report(
     df: pd.DataFrame,
     alerts: pd.DataFrame,
-    matrix: np.NDArray[np.float64],
-    sum_alerts: np.NDArray[np.float64],
+    matrix: np.ndarray[np.float64],
+    sum_alerts: np.ndarray[np.float64],
     index: int
 ) -> NoReturn:
     """
@@ -90,8 +90,8 @@ def find_reaction_report(
 
 def find_report(
     df: pd.DataFrame,
-    matrix: np.NDArray[np.float64],
-    sum_alerts: np.NDArray[np.float64],
+    matrix: np.ndarray[np.float64],
+    sum_alerts: np.ndarray[np.float64],
     index_i: int,
     start_alert: dt.datetime,
     end_alert: dt.datetime,

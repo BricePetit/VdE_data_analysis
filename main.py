@@ -32,8 +32,8 @@ from config import (
     FLUKSO,
     RTU,
     # Constants for path
+    CURRENT_FOLDER,
     DATASET_FOLDER,
-    RESAMPLED_FOLDER,
     PLOT_PATH,
     # Constants for the name of communities
     COMMUNITY_NAME,
@@ -48,7 +48,7 @@ from config import (
     REACTION,
     # Constants for the plotting
     PLOT,
-    SEC8,
+    BASIC_DATA,
     BASIC_PLOT,
     AREA_PLOT,
     PLOT_AVERAGE,
@@ -63,13 +63,11 @@ from config import (
     # Constants for the autoc onsumption
     AUTO_CONSUMPTION,
     # Variables for CDB
-    REPORT_CDB,
     ALL_CDB,
     ALERTS_CDB,
     MATRIX_ALERTS_CDB,
     SUM_ALERTS_CDB,
     # Variables for ECH
-    REPORT_ECH,
     ALL_ECH,
     ALERTS_ECH,
     MATRIX_ALERTS_ECH,
@@ -92,7 +90,7 @@ def manage_flukso_data() -> NoReturn:
             print("---------------Managing Data---------------")
             # For all file in the data folder
             # for file in sorted(os.listdir(community)):
-            folder_path: str = DATASET_FOLDER + '/' + community + '_REPORT'
+            folder_path: str = CURRENT_FOLDER + '/' + community
             files: List[str] = sorted(os.listdir(folder_path))
             for file in sorted(files):
                 filename: str = file[:6]
@@ -107,8 +105,8 @@ def manage_flukso_data() -> NoReturn:
     if RESAMPLE:
         # Way to parallelize tasks to resample data.
         files: List[str] = (
-            sorted(os.listdir(DATASET_FOLDER + '/CDB_REPORT'))
-            + sorted(os.listdir(DATASET_FOLDER + '/ECH_REPORT'))
+            sorted(os.listdir(DATASET_FOLDER + '/CDB'))
+            + sorted(os.listdir(DATASET_FOLDER + '/ECH'))
         )
         # Open a pool of processes to parallelize the resampling.
         with multiprocessing.Pool(NB_SLAVES) as p:
@@ -117,8 +115,8 @@ def manage_flukso_data() -> NoReturn:
                 file[:6]: p.apply_async(
                     resample_dataset,
                     (
-                        pd.read_csv(f"{DATASET_FOLDER}/{file[:3]}_REPORT/{file}"),
-                        f"{RESAMPLED_FOLDER}/{file[:3]}",
+                        pd.read_csv(f"{DATASET_FOLDER}/{file[:3]}/{file}"),
+                        f"{DATASET_FOLDER}/{file[:3]}",
                         file[:6],
                         {
                             'home_id': 'first',
@@ -145,7 +143,7 @@ def manage_rtu_data() -> NoReturn:
     if RESAMPLE_RTU:
         df: pd.DataFrame = pd.read_csv('dataset/RTU/rtu.csv')
         resample_dataset(
-            df, RESAMPLED_FOLDER + '/RTU', 'rtu',
+            df, CURRENT_FOLDER + '/RTU', 'rtu',
             {
                 'ip': 'first', 'day': 'first', 'active': 'mean',
                 'apparent': 'mean', 'cos_phi': 'mean', 'reactive': 'mean',
@@ -166,44 +164,43 @@ def concat_data(columns_name: List[str], type_concat: str) -> NoReturn:
         print('Error no columns name')
     else:
         print("Processing concatenation...")
-        for community in COMMUNITY_NAME:
-            data_path: str = f"{DATASET_FOLDER}/{community}"
-            previous_home: str = ""
-            home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-            files_list: List[str] = sorted(os.listdir(community))
-            if files_list[0] == '.DS_Store':
-                files_list.pop(0)
-            for file in files_list:
-                print(f"----------{file[:6]}----------")
-                need_save: bool = True
-                if previous_home == "":
-                    previous_home: str = file
-                elif (type_concat == "monthly"
-                        and
-                        (previous_home[:6] != file[:6] or previous_home[12:-7] != file[12:-7])):
-                    home_df.to_csv(
-                        f"{data_path}/{previous_home[:14]}.csv",
-                        index=False
-                    )
-                    home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-                    need_save: bool = False
-                elif type_concat == "yearly" and previous_home[:6] != file[:6]:
-                    home_df.to_csv(
-                        f"{data_path}/{previous_home[:6]}.csv", index=False
-                    )
-                    home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-                    need_save: bool = False
-
-                home_df: pd.DataFrame = pd.concat([home_df, pd.read_csv(data_path + '/' + file)])
+        data_path: str = f"{DATASET_FOLDER}/download_data"
+        previous_home: str = ""
+        home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+        files_list: List[str] = sorted(os.listdir(data_path))
+        if files_list[0] == '.DS_Store':
+            files_list.pop(0)
+        for file in files_list:
+            print(f"----------{file[:6]}----------")
+            need_save: bool = True
+            if previous_home == "":
                 previous_home: str = file
-            if need_save and type_concat == "monthly":
+            elif (type_concat == "monthly"
+                    and
+                    (previous_home[:6] != file[:6] or previous_home[12:-7] != file[12:-7])):
                 home_df.to_csv(
-                    f"{data_path}/{previous_home[:14]}.csv", index=False
+                    f"{data_path}/{previous_home[:14]}.csv",
+                    index=False
                 )
-            elif need_save and type_concat == "yearly":
+                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+                need_save: bool = False
+            elif type_concat == "yearly" and previous_home[:6] != file[:6]:
                 home_df.to_csv(
                     f"{data_path}/{previous_home[:6]}.csv", index=False
                 )
+                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+                need_save: bool = False
+
+            home_df: pd.DataFrame = pd.concat([home_df, pd.read_csv(data_path + '/' + file)])
+            previous_home: str = file
+        if need_save and type_concat == "monthly":
+            home_df.to_csv(
+                f"{data_path}/{previous_home[:3]}/{previous_home[:14]}.csv", index=False
+            )
+        elif need_save and type_concat == "yearly":
+            home_df.to_csv(
+                f"{data_path}/{previous_home[:3]}/{previous_home[:6]}.csv", index=False
+            )
 
 
 def compute_alert_reaction() -> NoReturn:
@@ -212,7 +209,7 @@ def compute_alert_reaction() -> NoReturn:
     """
     for community in COMMUNITY_NAME:
         print("--------------Computing Alerts--------------")
-        path: str = RESAMPLED_FOLDER + '/' + community
+        path: str = CURRENT_FOLDER + '/' + community
         # For all file in the data folder
         i: int = 0
         for file in sorted(os.listdir(path)):
@@ -226,11 +223,12 @@ def compute_alert_reaction() -> NoReturn:
                 find_reaction_report(
                     df, ALERTS_CDB, MATRIX_ALERTS_CDB, SUM_ALERTS_CDB, i
                 )
+                i += 1
             elif community == "ECH" and file[:6] in ALL_ECH:
                 find_reaction_report(
                     df, ALERTS_ECH, MATRIX_ALERTS_ECH, SUM_ALERTS_ECH, i
                 )
-            i += 1
+                i += 1
     # Take all home ids and add (%)
     cdb_home_id: List[str] = [f + ' (%)' for f in ALL_CDB]
     ech_home_id: List[str] = [f + ' (%)' for f in ALL_ECH]
@@ -244,12 +242,11 @@ def compute_alert_reaction() -> NoReturn:
     )
 
 
-def plot_average(current_folder: str, fmt: str) -> NoReturn:
+def plot_average(fmt: str) -> NoReturn:
     """
     Plot average.
 
-    :param current_folder:  Current folder where we are working (dataset or resample_dataset).
-    :param fmt:             Data format.
+    :param fmt:             The data format.
     """
     # 2022-08-23
     starting: dt.datetime = dt.datetime(2022, 8, 23, 0, 0, 0).astimezone()
@@ -258,21 +255,19 @@ def plot_average(current_folder: str, fmt: str) -> NoReturn:
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
         for i in [5, 10, 15, 20, 25, 30]:
-            plot_average_community(starting, ending, current_folder, i, fmt)
+            plot_average_community(starting, ending, i, fmt)
 
     # Plot the average communities together
     if AVERAGE_COMMUNITIES:
         print("--------------Plotting average through communities--------------")
         for nb_selected_house in [5, 10, 15, 20, 25, 30, 35, 40, 45]:
             print(f"--------------{nb_selected_house} selected houses--------------")
-            average_through_community(
-                starting, ending, current_folder, nb_selected_house, fmt
-            )
+            average_through_community(starting, ending, nb_selected_house, fmt)
 
     # Plot all aggregation
     if AGGREGATION:
         print("--------------Plotting Aggregation--------------")
-        plot_aggregation(starting, ending, current_folder, fmt)
+        plot_aggregation(starting, ending)
 
 
 def plot_flukso() -> NoReturn:
@@ -280,25 +275,21 @@ def plot_flukso() -> NoReturn:
     Function to plot flukso data.
     """
     # Choose the format
-    fmt: str = '8S' if SEC8 else '15min'
-    current_folder: str = DATASET_FOLDER if SEC8 else RESAMPLED_FOLDER
+    fmt: str = '8S' if BASIC_DATA else '15min'
+    cdt: bool = True
     # For all communities
     if BASIC_PLOT or AREA_PLOT:
         for community in COMMUNITY_NAME:
             print("--------------Plotting--------------")
             # For all file in the data folder
-            for file in sorted(os.listdir(current_folder + '/' + community)):
+            for file in sorted(os.listdir(CURRENT_FOLDER + '/' + community)):
                 print("---------------" + file[:6] + "---------------")
-                df: pd.DataFrame = pd.read_csv(current_folder + '/' + community + '/' + file)
+                df: pd.DataFrame = pd.read_csv(CURRENT_FOLDER + '/' + community + '/' + file)
                 home_id: str = df.at[0, 'home_id']
                 starting: dt.datetime = dt.datetime(2022, 5, 17, 0, 0, 0).astimezone()
                 ending: dt.datetime = dt.datetime(2022, 5, 17, 23, 59, 59).astimezone()
-                # Select the correct path according to the format (15min or 8S (for 8sec))
-                if SEC8:
-                    path: str = f"{PLOT_PATH}/{community}/{home_id}"
-                    cdt: bool = True
-                else:
-                    path: str = f"{PLOT_PATH}/{community}/{home_id}"
+                path: str = f"{PLOT_PATH}/{community}/{home_id}/{fmt}"
+                if not BASIC_DATA:
                     cdt: bool = (
                         int(file[12:14]) == starting.month and int(file[7:11]) == starting.year
                     )
@@ -322,19 +313,20 @@ def plot_flukso() -> NoReturn:
                             df, path, starting, ending,
                             f'Home: {home_id}', 'flukso', f"{home_id}_{starting}_{ending}_{fmt}"
                         )
-    plot_average(current_folder, fmt)
+    plot_average(fmt)
 
 
 def plot_rtu() -> NoReturn:
     """
     Function to plot rtu data.
     """
+    file_name = 'rtu.csv' if BASIC_DATA else 'rtu_15min.csv'
     if PLOT_MEDIAN_QUANTILE_RTU:
-        df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/RTU/rtu_15min.csv")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
         df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
         plot_median_quantile_rtu(df, f'{PLOT_PATH}/RTU')
     if PLOT_RANGE_RTU:
-        df: pd.DataFrame = pd.read_csv(RESAMPLED_FOLDER + '/RTU_REPORT/rtu_2022-12_15min.csv')
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
         starting: dt.datetime = dt.datetime(2022, 12, 21, 0, 0, 0).astimezone()
         ending: dt.datetime = dt.datetime(2022, 12, 21, 23, 59, 59).astimezone()
         plot_data(
@@ -348,7 +340,7 @@ def plot_rtu() -> NoReturn:
             .apply(lambda x: x.strftime('%H:%M:%S'))
             .reset_index(drop=True)
         )
-        df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/RTU/rtu_15min.csv")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
         df['ts']: pd.Series = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
         df: pd.DataFrame = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
         not_during_light: pd.DataFrame = df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
@@ -364,9 +356,9 @@ def all_plots() -> NoReturn:
         if PLOT_MEDIAN_QUANTILE_FLUKSO:
             print("----------Ploting quantiles----------")
             print("----------CDB----------")
-            for cdb in REPORT_CDB:
+            for cdb in ALL_CDB:
                 print(f"----------{cdb}----------")
-                df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/CDB/{cdb}_15min.csv")
+                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}_15min.csv")
                 # Add correct datetime with timezone.
                 df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 df: pd.DataFrame = df[df['p_cons'] > 0]
@@ -374,9 +366,9 @@ def all_plots() -> NoReturn:
                     df, f"{PLOT_PATH}/CDB/{cdb}"
                 )
             print("----------ECH----------")
-            for ech in REPORT_ECH:
+            for ech in ALL_ECH:
                 print(f"----------{ech}----------")
-                df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/ECH/{ech}_15min.csv")
+                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/ECH/{ech}_15min.csv")
                 # Add correct datetime with timezone.
                 df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 plot_median_quantile_flukso(
@@ -384,9 +376,7 @@ def all_plots() -> NoReturn:
                 )
 
         if PLOT_AVERAGE:
-            fmt: str = '8S' if SEC8 else '15min'
-            current_folder: str = DATASET_FOLDER if SEC8 else RESAMPLED_FOLDER
-            plot_average(current_folder, fmt)
+            plot_average('8S' if BASIC_DATA else '15min')
 
         if MEAN_WED_FLUKSO:
             for cdb in ALL_CDB:
@@ -396,7 +386,7 @@ def all_plots() -> NoReturn:
                     .apply(lambda x: x.strftime('%H:%M:%S'))
                     .reset_index(drop=True)
                 )
-                df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/CDB/{cdb}_15min.csv")
+                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}_15min.csv")
                 df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
                 df: pd.DataFrame = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
                 df: pd.DataFrame = df[df['p_cons'] > 0]
@@ -508,7 +498,7 @@ def auto_consumption() -> NoReturn:
     print("--------------------CDB--------------------")
     for house in ALL_CDB:
         print(f"--------------------{house}--------------------")
-        df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/CDB/{house}_15min.csv")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{house}_15min.csv")
         res: pd.DataFrame = pd.concat(
             [
                 res,
@@ -532,14 +522,14 @@ def auto_consumption() -> NoReturn:
     common_df: pd.DataFrame = pd.DataFrame()
     for common in ['ECHASC', 'ECHBUA', 'ECHCOM']:
         common_df = pd.concat(
-            [common_df, pd.read_csv(f"{DATASET_FOLDER}/ECH/{common}.csv")]
+            [common_df, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{common}.csv")]
         )
     common_df: pd.DataFrame = common_df.groupby('ts').sum(numeric_only=True).reset_index()
     df_echs: pd.DataFrame = pd.DataFrame()
     for house in ALL_ECH:
         print(f"--------------------{house}--------------------")
         df_echs: pd.DataFrame = pd.concat(
-            [df_echs, pd.read_csv(f"{DATASET_FOLDER}/ECH/{common}.csv")]
+            [df_echs, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{common}.csv")]
         )
     df_echs: pd.DataFrame = df_echs.groupby('ts').sum(numeric_only=True).reset_index()
     for month in [1, 2, 4, 5, 7, 8, 10, 11]:
@@ -560,9 +550,9 @@ def check_empty_date() -> NoReturn:
         final_df: pd.DataFrame = pd.DataFrame()
         columns: List = []
         print(f"--------------------{community}--------------------")
-        for home in sorted(os.listdir(RESAMPLED_FOLDER + '/' + community)):
+        for home in sorted(os.listdir(CURRENT_FOLDER + '/' + community)):
             print(f"--------------------{home[:6]}--------------------")
-            df: pd.DataFrame = pd.read_csv(f"{RESAMPLED_FOLDER}/{community}/{home}")
+            df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/{community}/{home}")
             df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
             df: pd.DataFrame = df.resample('15min', on='ts').mean(numeric_only=True).reset_index()
             ts: pd.DataFrame = (
@@ -614,12 +604,13 @@ def main() -> NoReturn:
     """
     Main function
     """
-    if MANAGE_DATA:
-        manage_data()
-
     # Concat all data in one file
     if CONCAT_DATA:
         manage_concat()
+
+    # Manage all data
+    if MANAGE_DATA:
+        manage_data()
 
     # Compute and show the information about the alert
     if REACTION:
@@ -633,6 +624,7 @@ def main() -> NoReturn:
     if AUTO_CONSUMPTION:
         auto_consumption()
 
+    # Check if there is empty date
     if CHECK_DATES:
         check_empty_date()
 

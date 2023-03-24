@@ -5,8 +5,9 @@ __license__ = "MIT"
 
 from config import (
     COMMUNITY_NAME,
-    SEC8,
+    BASIC_DATA,
     PLOT_PATH,
+    CURRENT_FOLDER,
     ALL_ECH,
     ALL_CDB
 )
@@ -29,7 +30,6 @@ from typing import NoReturn, Optional, List, Tuple
 def create_average_df(
     starting: dt.datetime,
     ending: dt.datetime,
-    current_folder: str,
     all_files: List[str],
     house_nb: int
 ) -> Tuple[pd.DataFrame, List[int]]:
@@ -38,7 +38,6 @@ def create_average_df(
 
     :param starting:        The starting date.
     :param ending:          The ending date.
-    :param current_folder:  The folder where we need to consider data.
     :param all_files:       List of houses.
     :param house_nb:        Number of house to apply the average.
 
@@ -53,15 +52,14 @@ def create_average_df(
     # For each selected house
     for house in chosen_house:
         print(f'--------------{all_files[house]}--------------')
-        if SEC8:
-            # Read the file and create a dataframe
-            df: pd.DataFrame = (
-                pd.read_csv(f"{current_folder}/{all_files[house][:3]}/{all_files[house]}.csv")
+        # Read the file and create a dataframe
+        if BASIC_DATA:
+            df: pd.DataFrame = pd.read_csv(
+                f"{CURRENT_FOLDER}/{all_files[house][:3]}/{all_files[house]}.csv"
             )
         else:
-            # Read the file and create a dataframe
             df: pd.DataFrame = pd.read_csv(
-                f"{current_folder}/{all_files[house][:3]}/{all_files[house]}_15min.csv"
+                f"{CURRENT_FOLDER}/{all_files[house][:3]}/{all_files[house]}_15min.csv"
             )
         # Query the period on the dataframe.
         week: pd.DataFrame = df.query(f"ts >= '{starting}' and ts <= '{ending}'")
@@ -75,8 +73,8 @@ def create_average_df(
 def plot_average_community(
     starting: dt.datetime,
     ending: dt.datetime,
-    current_folder: str,
-    house_nb: int
+    house_nb: int,
+    fmt: str
 ) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date for
@@ -86,6 +84,7 @@ def plot_average_community(
     :param ending:          The ending date.
     :param current_folder:  The folder where we need to consider data.
     :param house_nb:        Number of house to apply the average.
+    :param fmt:             The data format.
     """
     # For file in the folder resampled folder
     for community in COMMUNITY_NAME:
@@ -94,31 +93,27 @@ def plot_average_community(
             house_name: str = "ECH_"
             all_files: List[str] = ALL_ECH
         else:
-            house_name: str = "ECH_"
+            house_name: str = "CDB_"
             all_files: List[str] = ALL_CDB
         if house_nb > len(all_files):
             house_nb: int = len(all_files)
-        # All files in the dataset
-        # all_files = [f for f in os.listdir(DATASET_FOLDER + '/' + community)]
         # Temporary files that we want to use
-        new_df, selected_houses = create_average_df(
-            starting, ending, current_folder, all_files, house_nb
-        )
+        new_df, selected_houses = create_average_df(starting, ending, all_files, house_nb)
         for i in selected_houses:
             house_name += all_files[i][-3:] + '_'
         # Plot the results
         plot_data(
             new_df, f"{PLOT_PATH}/{community}/average_community", starting, ending,
             f"average in {community} over {house_nb} houses", 'flukso',
-            f"average_{starting.date()}_{community}_{house_nb}_{house_name}"
+            f"average_{starting.date()}_{community}_{house_nb}_{house_name}_{fmt}"
         )
 
 
 def average_through_community(
     starting: dt.datetime,
     ending: dt.datetime,
-    current_folder: str,
     house_nb: int,
+    fmt: str
 ) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date.
@@ -126,8 +121,8 @@ def average_through_community(
 
     :param starting:        The starting date.
     :param ending:          The ending date.
-    :param current_folder:  The folder where we need to consider data.
     :param house_nb:        Number of house to apply the average.
+    :param fmt:             The data format.
     """
     # All files in the dataset
     # all_files = [f for f in os.listdir(DATASET_FOLDER + '/ECH')]
@@ -136,18 +131,17 @@ def average_through_community(
     # Check if the size exceed the number of files.
     if house_nb > len(all_files):
         house_nb: int = len(all_files)
-    new_df, _ = create_average_df(starting, ending, current_folder, all_files, house_nb)
+    new_df, _ = create_average_df(starting, ending, all_files, house_nb)
     # Plot the results
     plot_data(
         new_df, f"{PLOT_PATH}/average_community_CDB_ECH", starting, ending,
-        f"{house_nb} selected houses", 'flukso', f"{house_nb}_selected_houses_{starting.date()}"
+        f"{house_nb} selected houses", 'flukso', f"{house_nb}_selected_houses_{starting.date()}_{fmt}"
     )
 
 
 def plot_aggregation(
     starting: dt.datetime,
     ending: dt.datetime,
-    current_folder: str,
 ) -> NoReturn:
     """
     Function to plot the aggregation for both communities.
@@ -161,7 +155,7 @@ def plot_aggregation(
             all_files: List[str] = ['ECHBUA', 'ECHASC', 'ECHCOM']
         else:
             all_files: List[str] = ['CDBA01', 'CDBA02']
-        new_df, _ = create_average_df(starting, ending, current_folder, all_files, len(all_files))
+        new_df, _ = create_average_df(starting, ending, all_files, len(all_files))
         plot_data(
             new_df, f"{PLOT_PATH}/{community}", starting, ending,
             'Aggregation', 'multiple_flukso'
