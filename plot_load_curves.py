@@ -5,11 +5,14 @@ __license__ = "MIT"
 
 from config import (
     COMMUNITY_NAME,
-    BASIC_DATA,
     PLOT_PATH,
     CURRENT_FOLDER,
     ALL_ECH,
-    ALL_CDB
+    ALL_CDB,
+    FMT,
+    ALL_COMMUNAL,
+    ALL_AGG_CDB,
+    BASIC_DATA
 )
 
 
@@ -51,16 +54,11 @@ def create_average_df(
     chosen_house = random.sample(range(0, len(all_files)), house_nb)
     # For each selected house
     for house in chosen_house:
-        print(f'--------------{all_files[house]}--------------')
+        print(f"--------------{all_files[house]}--------------")
         # Read the file and create a dataframe
-        if BASIC_DATA:
-            df: pd.DataFrame = pd.read_csv(
-                f"{CURRENT_FOLDER}/{all_files[house][:3]}/{all_files[house]}.csv"
-            )
-        else:
-            df: pd.DataFrame = pd.read_csv(
-                f"{CURRENT_FOLDER}/{all_files[house][:3]}/{all_files[house]}_15min.csv"
-            )
+        df: pd.DataFrame = pd.read_csv(
+            f"{CURRENT_FOLDER}/{all_files[house][:3]}/{all_files[house]}"
+        )
         # Query the period on the dataframe.
         week: pd.DataFrame = df.query(f"ts >= '{starting}' and ts <= '{ending}'")
         # Concat all houses
@@ -74,7 +72,6 @@ def plot_average_community(
     starting: dt.datetime,
     ending: dt.datetime,
     house_nb: int,
-    fmt: str
 ) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date for
@@ -84,7 +81,6 @@ def plot_average_community(
     :param ending:          The ending date.
     :param current_folder:  The folder where we need to consider data.
     :param house_nb:        Number of house to apply the average.
-    :param fmt:             The data format.
     """
     # For file in the folder resampled folder
     for community in COMMUNITY_NAME:
@@ -97,23 +93,27 @@ def plot_average_community(
             all_files: List[str] = ALL_CDB
         if house_nb > len(all_files):
             house_nb: int = len(all_files)
+        if house_nb == 0:
+            continue
         # Temporary files that we want to use
         new_df, selected_houses = create_average_df(starting, ending, all_files, house_nb)
+        if new_df.empty:
+            print("----------The DataFrame is empty----------")
+            continue
         for i in selected_houses:
             house_name += all_files[i][-3:] + '_'
         # Plot the results
         plot_data(
             new_df, f"{PLOT_PATH}/{community}/average_community", starting, ending,
             f"average in {community} over {house_nb} houses", 'flukso',
-            f"average_{starting.date()}_{community}_{house_nb}_{house_name}_{fmt}"
+            f"average_{starting.date()}_{community}_{house_nb}_{house_name}_{FMT}"
         )
 
 
 def average_through_community(
     starting: dt.datetime,
     ending: dt.datetime,
-    house_nb: int,
-    fmt: str
+    house_nb: int
 ) -> NoReturn:
     """
     Function to plot the average consumption from the starting date to the ending date.
@@ -122,20 +122,21 @@ def average_through_community(
     :param starting:        The starting date.
     :param ending:          The ending date.
     :param house_nb:        Number of house to apply the average.
-    :param fmt:             The data format.
     """
     # All files in the dataset
-    # all_files = [f for f in os.listdir(DATASET_FOLDER + '/ECH')]
-    # all_files.append([f for f in os.listdir(DATASET_FOLDER + '/CDB')])
     all_files: List[str] = ALL_CDB + ALL_ECH
     # Check if the size exceed the number of files.
     if house_nb > len(all_files):
         house_nb: int = len(all_files)
     new_df, _ = create_average_df(starting, ending, all_files, house_nb)
+    if new_df.empty:
+        print("----------The DataFrame is empty----------")
+        return
     # Plot the results
     plot_data(
         new_df, f"{PLOT_PATH}/average_community_CDB_ECH", starting, ending,
-        f"{house_nb} selected houses", 'flukso', f"{house_nb}_selected_houses_{starting.date()}_{fmt}"
+        f"{house_nb} selected houses", 'flukso',
+        f"{house_nb}_selected_houses_{starting.date()}_{FMT}"
     )
 
 
@@ -152,13 +153,15 @@ def plot_aggregation(
     """
     for community in COMMUNITY_NAME:
         if community == "ECH":
-            all_files: List[str] = ['ECHBUA', 'ECHASC', 'ECHCOM']
+            new_df, _ = create_average_df(starting, ending, ALL_COMMUNAL, len(ALL_COMMUNAL))
         else:
-            all_files: List[str] = ['CDBA01', 'CDBA02']
-        new_df, _ = create_average_df(starting, ending, all_files, len(all_files))
+            new_df, _ = create_average_df(starting, ending, ALL_AGG_CDB, len(ALL_AGG_CDB))
+        if new_df.empty:
+            print("----------The DataFrame is empty----------")
+            continue
         plot_data(
             new_df, f"{PLOT_PATH}/{community}", starting, ending,
-            'Aggregation', 'multiple_flukso'
+            'Aggregation', 'multiple_flukso', f"{community}_aggregation"
         )
 
 
@@ -245,6 +248,9 @@ def rtu_plot(df: pd.DataFrame, ts_series: pd.Series, path_to_save: str, title: s
     :param title:           Title of the plot.
     """
     idx: pd.DatetimeIndex = pd.DatetimeIndex(ts_series)
+    if idx.size != df.size:
+        print("Error! Size of index is different from data")
+        return
     # Parameter to obtain a large figure
     plt.rcParams["figure.figsize"] = [10, 8]
     # Plot data
@@ -382,7 +388,7 @@ def plot_data(
     str_ending: str = ending.isoformat(sep=" ")
     # Query data for the period.
     week: pd.DataFrame = df.query(
-        "ts >= \"" + str_starting + "\" and ts <= \"" + str_ending + "\""
+        f"ts >= '{str_starting}' and ts <= '{str_ending}'"
     )
     # Create time values according to the format for the plot on the x-axis that is
     # on the bottom
@@ -456,6 +462,9 @@ def plot_median_quantile(
     # Create time values according to the format for the plot on the x-axis that is
     # on the bottom
     idx: pd.DatetimeIndex = pd.DatetimeIndex(ts_series)
+    if idx.size != mean.size:
+        print("Error! Size of index is different from data")
+        return
     # Parameter to obtain a large figure
     plt.rcParams["figure.figsize"] = [10, 8]
     # Plot data
@@ -499,19 +508,14 @@ def plot_median_quantile(
     plt.close()
 
 
-def plot_median_quantile_rtu(df: pd.DataFrame, plot_path: str) -> NoReturn:
+def plot_median_quantile_rtu(df: pd.DataFrame, plot_path: str, time_series: pd.Series) -> NoReturn:
     """
     Function to plot the median, first and third quantile for the rtu data.
 
     :param df:          DataFrame.
     :param plot_path:   Path to save the plot.
+    :param time_series: Series with the time.
     """
-    time_series: pd.Series = (
-        pd.date_range("00:00:00", freq='15min', periods=96)
-        .to_series()
-        .apply(lambda x: x.strftime('%H:%M:%S'))
-        .reset_index(drop=True)
-    )
     median: pd.DataFrame = df.groupby(df['ts'].dt.time).median(numeric_only=True)
     first_q: pd.DataFrame = df.groupby(df['ts'].dt.time).quantile(q=0.25, numeric_only=True)
     third_q: pd.DataFrame = df.groupby(df['ts'].dt.time).quantile(q=0.75, numeric_only=True)
@@ -521,20 +525,16 @@ def plot_median_quantile_rtu(df: pd.DataFrame, plot_path: str) -> NoReturn:
     )
 
 
-def plot_median_quantile_flukso(df: pd.DataFrame, plot_path: str) -> NoReturn:
+def plot_median_quantile_flukso(
+    df: pd.DataFrame, plot_path: str, time_series: pd.Series
+) -> NoReturn:
     """
     Function to plot the median, first and third quantile flukso data.
 
     :param df:          DataFrame.
     :param plot_path:   Path.
+    :param time_series: Series with the time.
     """
-    # Create a series
-    time_series: pd.Series = (
-        pd.date_range("00:00:00", freq='15min', periods=96)
-        .to_series()
-        .apply(lambda x: x.strftime('%H:%M:%S'))
-        .reset_index(drop=True)
-    )
     median: pd.DataFrame = df.groupby(df['ts'].dt.time).median(numeric_only=True)
     first_q: pd.DataFrame = df.groupby(df['ts'].dt.time).quantile(q=0.25, numeric_only=True).abs()
     third_q: pd.DataFrame = df.groupby(df['ts'].dt.time).quantile(q=0.75, numeric_only=True).abs()

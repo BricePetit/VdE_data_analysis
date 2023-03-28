@@ -23,10 +23,10 @@ TZ = pytz.timezone('Europe/Brussels')
 NB_SLAVES: int = 8
 
 # True if we want to manage flukso data
-FLUKSO: bool = True
+FLUKSO: bool = False
 
 # True if we want to manage RTU data
-RTU: bool = True
+RTU: bool = False
 
 # Set to true if you want to use basic data and False to use resampled data.
 BASIC_DATA: bool = True
@@ -35,13 +35,16 @@ BASIC_DATA: bool = True
 NEXT_CLOUD: str = '/Users/bricepetitulb/Nextcloud/VdE'
 
 # Name of the folder where the dataset is located
-DATASET_FOLDER: str = f"{NEXT_CLOUD}/dataset"
+DATASET_FOLDER: str = f"{NEXT_CLOUD}/datasets/dataset"
 
 # Name of the folder where the resampled dataset is located
-RESAMPLED_FOLDER: str = f"{NEXT_CLOUD}/resampled_data"
+RESAMPLED_FOLDER: str = f"{NEXT_CLOUD}/datasets/resampled_data"
 
 # Selected folder to work with
 CURRENT_FOLDER: str = DATASET_FOLDER if BASIC_DATA else RESAMPLED_FOLDER
+
+# Select the correct format
+FMT: str = '8S' if BASIC_DATA else '15min'
 
 # Path to plot data
 PLOT_PATH: str = f"{NEXT_CLOUD}/plots"
@@ -53,59 +56,59 @@ MANAGE_DATA: bool = False
 CONCAT_DATA: bool = False
 
 # True if we want to verify if there are negative consumptions
-VERIFY_CONSUMPTION: bool = True
+VERIFY_CONSUMPTION: bool = False
 
 # True if we want to resample the dataset
-RESAMPLE: bool = True
+RESAMPLE: bool = False
 
 # True if we want to resample the dataset
-RESAMPLE_RTU: bool = True
+RESAMPLE_RTU: bool = False
 
 # Set to True if you want to enter in the function to plot
-PLOT: bool = True
+PLOT: bool = False
 
 # Set to True if you want to plot the average over house
-PLOT_AVERAGE: bool = True
+PLOT_AVERAGE: bool = False
 
 # Set to True if you want to apply and plot the median, first & third quantile for the RTU
-PLOT_MEDIAN_QUANTILE_RTU: bool = True
+PLOT_MEDIAN_QUANTILE_RTU: bool = False
 
 # Set to True if you want to apply and plot the median, first & third quantile for the flukso
-PLOT_MEDIAN_QUANTILE_FLUKSO: bool = True
+PLOT_MEDIAN_QUANTILE_FLUKSO: bool = False
 
 # Set to True if you want to plot the mean of each wednesday for the flukso
-MEAN_WED_FLUKSO: bool = True
+MEAN_WED_FLUKSO: bool = False
 
 # Set to True if you want to plot the mean of each wednesday for the rtu
-MEAN_WED_RTU: bool = True
+MEAN_WED_RTU: bool = False
 
 # Set to True if you want to apply a classical plot according to a range
 # of dates.
-PLOT_RANGE_RTU: bool = True
+PLOT_RANGE_RTU: bool = False
 
 # True if we want to plot basic information
-BASIC_PLOT: bool = True
+BASIC_PLOT: bool = False
 
 # True if you want to plot areas
-AREA_PLOT: bool = True
+AREA_PLOT: bool = False
 
 # True we want to plot the average over the entire community
-AVERAGE_COMMUNITY: bool = True
+AVERAGE_COMMUNITY: bool = False
 
 # True we want to plot the average over all communities
-AVERAGE_COMMUNITIES: bool = True
+AVERAGE_COMMUNITIES: bool = False
 
 # True we want to plot the aggregation
-AGGREGATION: bool = True
+AGGREGATION: bool = False
 
 # True if we want to verify reactions
 REACTION: bool = False
 
 # True if you want to compute the auto consumption
-AUTO_CONSUMPTION: bool = True
+AUTO_CONSUMPTION: bool = False
 
 # True if we want to create a file where we describe if we use data for each ts.
-CHECK_DATES: bool = True
+CHECK_DATES: bool = False
 
 # Name of communities
 COMMUNITY_NAME: List[str] = ["CDB", "ECH"]
@@ -132,15 +135,22 @@ REPORTS_HOURS: List[dt.timedelta] = [
 
 # List of all data for the CDB
 with os.scandir(f"{CURRENT_FOLDER}/CDB") as cdb:
+    ALL_AGG_CDB: List[str] = sorted([f.name for f in cdb if f.name[:4] == 'CDBA'])
+
+# List of all data for the CDB
+with os.scandir(f"{CURRENT_FOLDER}/CDB") as cdb:
     ALL_CDB: List[str] = sorted([f.name for f in cdb if f.name[:3] == 'CDB'])
 
 # List of commons in ECH
-ALL_COMMON: List[str] = ['ECHASC.csv', 'ECHBUA.csv', 'ECHCOM.csv']
+with os.scandir(f"{CURRENT_FOLDER}/ECH") as ech:
+    ALL_COMMUNAL: List[str] = sorted(
+        [f.name for f in ech if f.name[:4] != 'ECHL' and f.name[:3] == 'ECH']
+    )
 
 # List of all data for the CDB
 with os.scandir(f"{CURRENT_FOLDER}/ECH") as ech:
     ALL_ECH: List[str] = sorted(
-        [f.name for f in ech if f.name[:3] == 'ECH' and f.name not in ALL_COMMON]
+        [f.name for f in ech if f.name[:3] == 'ECH' and f.name not in ALL_COMMUNAL]
     )
 
 # Matrix containing result of report and reaction

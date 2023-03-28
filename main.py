@@ -31,9 +31,12 @@ from config import (
     NB_SLAVES,
     FLUKSO,
     RTU,
+    FMT,
+    NEXT_CLOUD,
     # Constants for path
     CURRENT_FOLDER,
     DATASET_FOLDER,
+    RESAMPLED_FOLDER,
     PLOT_PATH,
     # Constants for the name of communities
     COMMUNITY_NAME,
@@ -69,6 +72,7 @@ from config import (
     SUM_ALERTS_CDB,
     # Variables for ECH
     ALL_ECH,
+    ALL_COMMUNAL,
     ALERTS_ECH,
     MATRIX_ALERTS_ECH,
     SUM_ALERTS_ECH,
@@ -78,6 +82,56 @@ from config import (
 # ----------------------------- #
 # ----------MAIN CODE---------- #
 # ----------------------------- #
+def concat_data(columns_name: List[str], type_concat: str) -> NoReturn:
+    """
+    Function to concatenate data into one file. The idea is to take each file day by day
+    and create a new file month by month or per house.
+
+    :param columns_name:    List of string with the name of each column.
+    :param type_concat:     String with the type of the concatenation.
+    """
+    if columns_name == "":
+        print("--------------------Error no columns name--------------------")
+    else:
+        print("--------------------Processing concatenation...--------------------")
+        previous_home: str = ""
+        path_to_read: str = f"{NEXT_CLOUD}/download_data"
+        home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+        for file in sorted(os.listdir(path_to_read)):
+            if file == '.DS_Store':
+                continue
+            print(f"----------{file}----------")
+            need_save: bool = True
+            if previous_home == "":
+                previous_home: str = file
+            elif (type_concat == "monthly"
+                    and
+                    (previous_home[:6] != file[:6] or previous_home[12:-7] != file[12:-7])):
+                home_df.to_csv(
+                    f"{DATASET_FOLDER}/{previous_home[:3]}/{previous_home[:14]}.csv",
+                    index=False
+                )
+                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+                need_save: bool = False
+            elif type_concat == "yearly" and previous_home[:6] != file[:6]:
+                home_df.to_csv(
+                    f"{DATASET_FOLDER}/{previous_home[:3]}/{previous_home[:6]}.csv", index=False
+                )
+                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
+                need_save: bool = False
+
+            home_df: pd.DataFrame = pd.concat(
+                [home_df, pd.read_csv(f"{path_to_read}/{file}")]
+            )
+            previous_home: str = file
+        if need_save and type_concat == "monthly":
+            home_df.to_csv(
+                f"{DATASET_FOLDER}/{previous_home[:3]}/{previous_home[:14]}.csv", index=False
+            )
+        elif need_save and type_concat == "yearly":
+            home_df.to_csv(
+                f"{DATASET_FOLDER}/{previous_home[:3]}/{previous_home[:6]}.csv", index=False
+            )
 
 
 def manage_flukso_data() -> NoReturn:
@@ -90,24 +144,26 @@ def manage_flukso_data() -> NoReturn:
             print("---------------Managing Data---------------")
             # For all file in the data folder
             # for file in sorted(os.listdir(community)):
-            folder_path: str = CURRENT_FOLDER + '/' + community
-            files: List[str] = sorted(os.listdir(folder_path))
-            for file in sorted(files):
+            folder_path: str = f"{CURRENT_FOLDER}/{community}"
+            for file in sorted(os.listdir(folder_path)):
+                if file == '.DS_Store':
+                    continue
                 filename: str = file[:6]
-                print("---------------" + filename + "---------------")
-                # df = pd.read_csv(community + '/' + file)
-                df: pd.DataFrame = pd.read_csv(folder_path + '/' + file)
-
+                print(f"---------------{filename}---------------")
+                df: pd.DataFrame = pd.read_csv(f"{folder_path}/{file}")
                 # Check if there is a negative consumption
                 check_negative_consumption(df, filename)
 
     # Run the resample function according to Resample boolean value
     if RESAMPLE:
         # Way to parallelize tasks to resample data.
-        files: List[str] = (
-            sorted(os.listdir(DATASET_FOLDER + '/CDB'))
-            + sorted(os.listdir(DATASET_FOLDER + '/ECH'))
-        )
+        cdb: List[str] = sorted(os.listdir(f"{DATASET_FOLDER}/CDB"))
+        if cdb[0] == '.DS_Store':
+            cdb.pop(0)
+        ech: List[str] = sorted(os.listdir(f"{DATASET_FOLDER}/ECH"))
+        if ech[0] == '.DS_Store':
+            ech.pop(0)
+        files: List[str] = (cdb + ech)
         # Open a pool of processes to parallelize the resampling.
         with multiprocessing.Pool(NB_SLAVES) as p:
             # Create a dictionary containing the ID of the home and the process.
@@ -116,7 +172,7 @@ def manage_flukso_data() -> NoReturn:
                     resample_dataset,
                     (
                         pd.read_csv(f"{DATASET_FOLDER}/{file[:3]}/{file}"),
-                        f"{DATASET_FOLDER}/{file[:3]}",
+                        f"{RESAMPLED_FOLDER}/{file[:3]}",
                         file[:6],
                         {
                             'home_id': 'first',
@@ -141,9 +197,9 @@ def manage_rtu_data() -> NoReturn:
     """
     # Resample rtu data
     if RESAMPLE_RTU:
-        df: pd.DataFrame = pd.read_csv('dataset/RTU/rtu.csv')
+        df: pd.DataFrame = pd.read_csv(f"{DATASET_FOLDER}/RTU/rtu.csv")
         resample_dataset(
-            df, CURRENT_FOLDER + '/RTU', 'rtu',
+            df, f"{RESAMPLED_FOLDER}/RTU", 'rtu',
             {
                 'ip': 'first', 'day': 'first', 'active': 'mean',
                 'apparent': 'mean', 'cos_phi': 'mean', 'reactive': 'mean',
@@ -152,69 +208,20 @@ def manage_rtu_data() -> NoReturn:
         )
 
 
-def concat_data(columns_name: List[str], type_concat: str) -> NoReturn:
-    """
-    Function to concatenate data into one file. The idea is to take each file day by day
-    and create a new file month by month or per house.
-
-    :param columns_name:    List of string with the name of each column.
-    :param type_concat:     String with the type of the concatenation.
-    """
-    if columns_name == "":
-        print('Error no columns name')
-    else:
-        print("Processing concatenation...")
-        data_path: str = f"{DATASET_FOLDER}/download_data"
-        previous_home: str = ""
-        home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-        files_list: List[str] = sorted(os.listdir(data_path))
-        if files_list[0] == '.DS_Store':
-            files_list.pop(0)
-        for file in files_list:
-            print(f"----------{file[:6]}----------")
-            need_save: bool = True
-            if previous_home == "":
-                previous_home: str = file
-            elif (type_concat == "monthly"
-                    and
-                    (previous_home[:6] != file[:6] or previous_home[12:-7] != file[12:-7])):
-                home_df.to_csv(
-                    f"{data_path}/{previous_home[:14]}.csv",
-                    index=False
-                )
-                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-                need_save: bool = False
-            elif type_concat == "yearly" and previous_home[:6] != file[:6]:
-                home_df.to_csv(
-                    f"{data_path}/{previous_home[:6]}.csv", index=False
-                )
-                home_df: pd.DataFrame = pd.DataFrame(columns=columns_name)
-                need_save: bool = False
-
-            home_df: pd.DataFrame = pd.concat([home_df, pd.read_csv(data_path + '/' + file)])
-            previous_home: str = file
-        if need_save and type_concat == "monthly":
-            home_df.to_csv(
-                f"{data_path}/{previous_home[:3]}/{previous_home[:14]}.csv", index=False
-            )
-        elif need_save and type_concat == "yearly":
-            home_df.to_csv(
-                f"{data_path}/{previous_home[:3]}/{previous_home[:6]}.csv", index=False
-            )
-
-
 def compute_alert_reaction() -> NoReturn:
     """
     Function for reactions.
     """
     for community in COMMUNITY_NAME:
         print("--------------Computing Alerts--------------")
-        path: str = CURRENT_FOLDER + '/' + community
+        path: str = f"{CURRENT_FOLDER}/{community}"
         # For all file in the data folder
         i: int = 0
         for file in sorted(os.listdir(path)):
+            if file == '.DS_Store':
+                continue
             print(f"---------------{file[:6]}---------------")
-            df: pd.DataFrame = pd.read_csv(path + '/' + file)
+            df: pd.DataFrame = pd.read_csv(f"{path}/{file}")
             df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
             df['day']: pd.TimestampSeries = pd.to_datetime(df['day'])
             df: pd.DataFrame = df[df['p_cons'] > 0]
@@ -242,11 +249,9 @@ def compute_alert_reaction() -> NoReturn:
     )
 
 
-def plot_average(fmt: str) -> NoReturn:
+def plot_average() -> NoReturn:
     """
     Plot average.
-
-    :param fmt:             The data format.
     """
     # 2022-08-23
     starting: dt.datetime = dt.datetime(2022, 8, 23, 0, 0, 0).astimezone()
@@ -255,14 +260,14 @@ def plot_average(fmt: str) -> NoReturn:
     if AVERAGE_COMMUNITY:
         print("--------------Plotting average--------------")
         for i in [5, 10, 15, 20, 25, 30]:
-            plot_average_community(starting, ending, i, fmt)
+            plot_average_community(starting, ending, i)
 
     # Plot the average communities together
     if AVERAGE_COMMUNITIES:
         print("--------------Plotting average through communities--------------")
         for nb_selected_house in [5, 10, 15, 20, 25, 30, 35, 40, 45]:
             print(f"--------------{nb_selected_house} selected houses--------------")
-            average_through_community(starting, ending, nb_selected_house, fmt)
+            average_through_community(starting, ending, nb_selected_house)
 
     # Plot all aggregation
     if AGGREGATION:
@@ -274,21 +279,19 @@ def plot_flukso() -> NoReturn:
     """
     Function to plot flukso data.
     """
-    # Choose the format
-    fmt: str = '8S' if BASIC_DATA else '15min'
     cdt: bool = True
     # For all communities
     if BASIC_PLOT or AREA_PLOT:
         for community in COMMUNITY_NAME:
             print("--------------Plotting--------------")
             # For all file in the data folder
-            for file in sorted(os.listdir(CURRENT_FOLDER + '/' + community)):
-                print("---------------" + file[:6] + "---------------")
-                df: pd.DataFrame = pd.read_csv(CURRENT_FOLDER + '/' + community + '/' + file)
+            for file in sorted(os.listdir(f"{CURRENT_FOLDER}/{community}")):
+                print(f"---------------{file[:6]}---------------")
+                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/{community}/{file}")
                 home_id: str = df.at[0, 'home_id']
                 starting: dt.datetime = dt.datetime(2022, 5, 17, 0, 0, 0).astimezone()
                 ending: dt.datetime = dt.datetime(2022, 5, 17, 23, 59, 59).astimezone()
-                path: str = f"{PLOT_PATH}/{community}/{home_id}/{fmt}"
+                path: str = f"{PLOT_PATH}/{community}/{home_id}/{FMT}"
                 if not BASIC_DATA:
                     cdt: bool = (
                         int(file[12:14]) == starting.month and int(file[7:11]) == starting.year
@@ -305,47 +308,149 @@ def plot_flukso() -> NoReturn:
                     if BASIC_PLOT:
                         plot_data(
                             df, path, starting, ending,
-                            f'Home: {home_id}', 'multiple_flukso',
-                            f"{home_id}_{starting}_{ending}_{fmt}"
+                            f"Home: {home_id}", 'multiple_flukso',
+                            f"{home_id}_{starting}_{ending}_{FMT}"
                         )
                     elif AREA_PLOT:
                         plot_data(
                             df, path, starting, ending,
-                            f'Home: {home_id}', 'flukso', f"{home_id}_{starting}_{ending}_{fmt}"
+                            f"Home: {home_id}", 'flukso', f"{home_id}_{starting}_{ending}_{FMT}"
                         )
-    plot_average(fmt)
+    plot_average()
 
 
 def plot_rtu() -> NoReturn:
     """
     Function to plot rtu data.
     """
-    file_name = 'rtu.csv' if BASIC_DATA else 'rtu_15min.csv'
-    if PLOT_MEDIAN_QUANTILE_RTU:
-        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
-        df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
-        plot_median_quantile_rtu(df, f'{PLOT_PATH}/RTU')
-    if PLOT_RANGE_RTU:
-        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
-        starting: dt.datetime = dt.datetime(2022, 12, 21, 0, 0, 0).astimezone()
-        ending: dt.datetime = dt.datetime(2022, 12, 21, 23, 59, 59).astimezone()
-        plot_data(
-            df, f'{PLOT_PATH}/RTU', starting, ending, 'Cabine basse tension',
-            'rtu', f"rtu_{starting}_{ending}"
+    if BASIC_DATA:
+        file_name: str = 'rtu.csv'
+        time_series: pd.Series = (
+            pd.date_range("00:00:00", freq='5min', periods=288)
+            .to_series()
+            .apply(lambda x: x.strftime('%H:%M:%S'))
+            .reset_index(drop=True)
         )
-    if MEAN_WED_RTU:
-        time_series: pd.DatetimeIndex = (
+    else:
+        file_name = 'rtu_15min.csv'
+        time_series: pd.Series = (
             pd.date_range("00:00:00", freq='15min', periods=96)
             .to_series()
             .apply(lambda x: x.strftime('%H:%M:%S'))
             .reset_index(drop=True)
         )
+
+    if PLOT_MEDIAN_QUANTILE_RTU:
+        print("--------------Plotting RTU quantile--------------")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
+        df['ts']: pd.Series = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+        plot_median_quantile_rtu(df, f"{PLOT_PATH}/RTU", time_series)
+
+    if PLOT_RANGE_RTU:
+        print("--------------Plotting RTU range--------------")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
+        starting: dt.datetime = dt.datetime(2022, 12, 21, 0, 0, 0).astimezone()
+        ending: dt.datetime = dt.datetime(2022, 12, 21, 23, 59, 59).astimezone()
+        plot_data(
+            df, f"{PLOT_PATH}/RTU", starting, ending, 'Cabine basse tension',
+            'rtu', f"rtu_{starting}_{ending}"
+        )
+
+    if MEAN_WED_RTU:
+        print("--------------Plotting RTU mean wednesday--------------")
         df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/RTU/{file_name}")
         df['ts']: pd.Series = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
         df: pd.DataFrame = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
         not_during_light: pd.DataFrame = df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
         mean: pd.DataFrame = df.groupby(not_during_light['ts'].dt.time).mean(numeric_only=True)
-        rtu_plot(mean, time_series, f'{PLOT_PATH}/RTU', 'Mean wednesday RTU')
+        rtu_plot(mean, time_series, f"{PLOT_PATH}/RTU", 'Mean wednesday RTU')
+
+
+def prepare_plot_median_quantile_flukso():
+    """
+    Function to prepare and apply the plotting of the median and quantiles of flukso data.
+    """
+    if BASIC_DATA:
+        time_series: pd.Series = (
+            pd.date_range("00:00:00", freq='8S', periods=10800)
+            .to_series()
+            .apply(lambda x: x.strftime('%H:%M:%S'))
+            .reset_index(drop=True)
+        )
+    else:
+        time_series: pd.Series = (
+            pd.date_range("00:00:00", freq='15min', periods=96)
+            .to_series()
+            .apply(lambda x: x.strftime('%H:%M:%S'))
+            .reset_index(drop=True)
+        )
+    print("----------Ploting quantiles----------")
+    print("----------CDB----------")
+    for cdb in ALL_CDB:
+        print(f"----------{cdb}----------")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}")
+        # Add correct datetime with timezone.
+        df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+        df: pd.DataFrame = df[df['p_cons'] > 0]
+        if df.empty:
+            print(f"----------{cdb} is empty----------")
+            print("----------There is no cons > 0----------")
+            continue
+        plot_median_quantile_flukso(
+            df, f"{PLOT_PATH}/CDB/{cdb[:6]}", time_series
+        )
+    print("----------ECH----------")
+    for ech in ALL_ECH:
+        print(f"----------{ech}----------")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/ECH/{ech}")
+        # Add correct datetime with timezone.
+        df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+        if df.empty:
+            print(f"----------{ech} is empty----------")
+            continue
+        plot_median_quantile_flukso(
+            df, f"{PLOT_PATH}/ECH/{ech[:6]}", time_series
+        )
+
+
+def compute_mean_wednesday_flukso():
+    """
+    Compute the mean for a typical wednesday in CDB.
+    """
+    print("----------Compute mean for wednesday----------")
+    for cdb in ALL_CDB:
+        print(f"----------{cdb}----------")
+        time_series: pd.Series = (
+            pd.date_range("00:00:00", freq='15min', periods=96)
+            .to_series()
+            .apply(lambda x: x.strftime('%H:%M:%S'))
+            .reset_index(drop=True)
+        )
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}")
+        df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
+        df: pd.DataFrame = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
+        df: pd.DataFrame = df[df['p_cons'] > 0]
+        if df.empty:
+            print(f"----------{cdb} is empty----------")
+            print("----------There is no cons > 0----------")
+            continue
+        df: pd.DataFrame = (
+            df
+            .resample('15min', on='ts')
+            .mean(numeric_only=True)
+            .reset_index()
+        )
+        not_during_light: pd.DataFrame = (
+            df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
+        )
+        mean: pd.DataFrame = (
+            df
+            .groupby(not_during_light['ts'].dt.time)
+            .mean(numeric_only=True)
+        )
+        flukso_plot(
+            mean, time_series, f"{PLOT_PATH}/CDB/{cdb[:6]}", f"Mean wednesday {cdb[:6]}"
+        )
 
 
 def all_plots() -> NoReturn:
@@ -354,57 +459,13 @@ def all_plots() -> NoReturn:
     """
     if FLUKSO:
         if PLOT_MEDIAN_QUANTILE_FLUKSO:
-            print("----------Ploting quantiles----------")
-            print("----------CDB----------")
-            for cdb in ALL_CDB:
-                print(f"----------{cdb}----------")
-                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}_15min.csv")
-                # Add correct datetime with timezone.
-                df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
-                df: pd.DataFrame = df[df['p_cons'] > 0]
-                plot_median_quantile_flukso(
-                    df, f"{PLOT_PATH}/CDB/{cdb}"
-                )
-            print("----------ECH----------")
-            for ech in ALL_ECH:
-                print(f"----------{ech}----------")
-                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/ECH/{ech}_15min.csv")
-                # Add correct datetime with timezone.
-                df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
-                plot_median_quantile_flukso(
-                    df, f"{PLOT_PATH}/ECH/{ech}"
-                )
+            prepare_plot_median_quantile_flukso()
 
         if PLOT_AVERAGE:
-            plot_average('8S' if BASIC_DATA else '15min')
+            plot_average()
 
         if MEAN_WED_FLUKSO:
-            for cdb in ALL_CDB:
-                time_series: pd.Series = (
-                    pd.date_range("00:00:00", freq='15min', periods=96)
-                    .to_series()
-                    .apply(lambda x: x.strftime('%H:%M:%S'))
-                    .reset_index(drop=True)
-                )
-                df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{cdb}_15min.csv")
-                df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
-                df: pd.DataFrame = df[(df['ts'].dt.weekday == 2) & (df['ts'].dt.year != 2023)]
-                df: pd.DataFrame = df[df['p_cons'] > 0]
-                df: pd.DataFrame = (
-                    df
-                    .resample('15min', on='ts')
-                    .mean(numeric_only=True)
-                    .reset_index()
-                )
-                not_during_light: pd.DataFrame = (
-                    df[~((df['ts'].dt.day == 21) & (df['ts'].dt.month == 12))]
-                )
-                mean: pd.DataFrame = (
-                    df
-                    .groupby(not_during_light['ts'].dt.time)
-                    .mean(numeric_only=True)
-                )
-                flukso_plot(mean, time_series, f"{PLOT_PATH}/CDB/{cdb}", f"Mean wednesday {cdb}")
+            compute_mean_wednesday_flukso()
     if RTU:
         plot_rtu()
 
@@ -413,7 +474,7 @@ def compute_auto_consumption(
     df: pd.DataFrame,
     month: int,
     columns: List[str],
-    df_common: Optional[pd.DataFrame] = None
+    communal_df: Optional[pd.DataFrame] = None
 ) -> pd.DataFrame:
     """
     Function to compute the auto consumption, the total consumption and
@@ -422,7 +483,7 @@ def compute_auto_consumption(
     :param df:          DataFrame with data where we need a column 'ts', 'day', 'p_cons', 'p_prod'.
     :param month:       The number of the month (January is 1 and december is 12).
     :param columns:     List with the name of columns.
-    :param df_common:   DataFrame of the common in ECH. If CDB = None.
+    :param communal_df:   DataFrame of the common in ECH. If CDB = None.
 
     :return:            Return a DataFrame with the percentage of auto consumption, the total
                         consumption and the total production.
@@ -437,11 +498,15 @@ def compute_auto_consumption(
     # Consider the month that we want to compute
     work_df: pd.DataFrame = df[(df['ts'].dt.month == month)]
     # Check if we are in the case of the ECH or not
-    if df_common is not None:
-        df_common['ts']: pd.TimestampSeries = pd.to_datetime(df_common['ts'], utc=True).dt.tz_convert(TZ)
-        df_common: pd.DataFrame = df_common[df_common['ts'].dt.month == month]
-        work_df['p_prod']: pd.Series = work_df['p_prod'].add(df_common['p_prod'], fill_value=0)
-        work_df['p_cons']: pd.Series = work_df['p_cons'].add(df_common['p_cons'], fill_value=0)
+    if communal_df is not None:
+        communal_df['ts']: pd.TimestampSeries = (
+            pd.to_datetime(communal_df['ts'], utc=True)
+            .dt
+            .tz_convert(TZ)
+        )
+        communal_df: pd.DataFrame = communal_df[communal_df['ts'].dt.month == month]
+        work_df['p_prod']: pd.Series = work_df['p_prod'].add(communal_df['p_prod'], fill_value=0)
+        work_df['p_cons']: pd.Series = work_df['p_cons'].add(communal_df['p_cons'], fill_value=0)
     # Keep only periods where the production is negative meaning that there is a production.
     work_df: pd.DataFrame = work_df[work_df["p_prod"] < 0]
     # Keep only periods where the consumption is positive (remove errors).
@@ -498,13 +563,13 @@ def auto_consumption() -> NoReturn:
     print("--------------------CDB--------------------")
     for house in ALL_CDB:
         print(f"--------------------{house}--------------------")
-        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{house}_15min.csv")
+        df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/CDB/{house}")
         res: pd.DataFrame = pd.concat(
             [
                 res,
                 pd.DataFrame(
                     [[
-                        f'{house}', 'Autoconsommation',
+                        f"{house}", 'Autoconsommation',
                         'consommation totale', 'production totale'
                     ]],
                     columns=columns
@@ -515,30 +580,41 @@ def auto_consumption() -> NoReturn:
             res = pd.concat([res, compute_auto_consumption(df, month, columns)])
     print("--------------------Computing of autoconsumption finished !--------------------")
     print("--------------------Saving file...--------------------")
-    res.to_excel(excel_writer=f"{PLOT_PATH}/CDB_auto_consumption.xlsx", index=False)
-    print("--------------------Save complete !--------------------")
+    if res.empty:
+        print("--------------------Save aborted! The file is empty--------------------")
+    else:
+        res.to_excel(excel_writer=f"{PLOT_PATH}/CDB_auto_consumption.xlsx", index=False)
+        print("--------------------Save complete !--------------------")
     print("--------------------ECH--------------------")
     res: pd.DataFrame = pd.DataFrame(columns=columns)
-    common_df: pd.DataFrame = pd.DataFrame()
-    for common in ['ECHASC', 'ECHBUA', 'ECHCOM']:
-        common_df = pd.concat(
-            [common_df, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{common}.csv")]
+    communal_df: pd.DataFrame = pd.DataFrame()
+    for communal in ALL_COMMUNAL:
+        communal_df = pd.concat(
+            [communal_df, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{communal}")]
         )
-    common_df: pd.DataFrame = common_df.groupby('ts').sum(numeric_only=True).reset_index()
-    df_echs: pd.DataFrame = pd.DataFrame()
-    for house in ALL_ECH:
-        print(f"--------------------{house}--------------------")
-        df_echs: pd.DataFrame = pd.concat(
-            [df_echs, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{common}.csv")]
-        )
-    df_echs: pd.DataFrame = df_echs.groupby('ts').sum(numeric_only=True).reset_index()
-    for month in [1, 2, 4, 5, 7, 8, 10, 11]:
-        res: pd.DataFrame = pd.concat([res, compute_auto_consumption(df_echs, month, columns, common_df)])
-    print("--------------------Computing of autoconsumption finished !--------------------")
-    print("--------------------Saving file...--------------------")
-    res.to_excel(excel_writer=f"{PLOT_PATH}/ECH_auto_consumption.xlsx", index=False)
-    print(res)
-    print("--------------------Save complete !--------------------")
+    if communal_df.empty:
+        print("--------------------Computation aborted! No production data--------------------")
+    else:
+        communal_df: pd.DataFrame = communal_df.groupby('ts').sum(numeric_only=True).reset_index()
+        df_echs: pd.DataFrame = pd.DataFrame()
+        for house in ALL_ECH:
+            print(f"--------------------{house}--------------------")
+            df_echs: pd.DataFrame = pd.concat(
+                [df_echs, pd.read_csv(f"{CURRENT_FOLDER}/ECH/{communal}")]
+            )
+        df_echs: pd.DataFrame = df_echs.groupby('ts').sum(numeric_only=True).reset_index()
+        for month in [1, 2, 4, 5, 7, 8, 10, 11]:
+            res: pd.DataFrame = pd.concat(
+                [res, compute_auto_consumption(df_echs, month, columns, communal_df)]
+            )
+        print("--------------------Computing of autoconsumption finished !--------------------")
+        print("--------------------Saving file...--------------------")
+        if res.empty:
+            print("--------------------Save aborted! The file is empty--------------------")
+        else:
+            res.to_excel(excel_writer=f"{PLOT_PATH}/ECH_auto_consumption.xlsx", index=False)
+            print(res)
+            print("--------------------Save complete !--------------------")
 
 
 def check_empty_date() -> NoReturn:
@@ -550,8 +626,10 @@ def check_empty_date() -> NoReturn:
         final_df: pd.DataFrame = pd.DataFrame()
         columns: List = []
         print(f"--------------------{community}--------------------")
-        for home in sorted(os.listdir(CURRENT_FOLDER + '/' + community)):
-            print(f"--------------------{home[:6]}--------------------")
+        for home in sorted(os.listdir(f"{CURRENT_FOLDER}/{community}")):
+            if home == '.DS_Store':
+                continue
+            print(f"--------------------{home}--------------------")
             df: pd.DataFrame = pd.read_csv(f"{CURRENT_FOLDER}/{community}/{home}")
             df['ts']: pd.TimestampSeries = pd.to_datetime(df['ts'], utc=True).dt.tz_convert(TZ)
             df: pd.DataFrame = df.resample('15min', on='ts').mean(numeric_only=True).reset_index()
@@ -568,7 +646,7 @@ def check_empty_date() -> NoReturn:
             excel_writer=f"{PLOT_PATH}/{community}_state.xlsx",
             index=False
         )
-    print("--------------------Done !--------------------")
+    print("--------------------Done!--------------------")
 
 
 def manage_data() -> NoReturn:
@@ -590,9 +668,9 @@ def manage_concat() -> NoReturn:
     # Concat small dataset in larger dataset
     columns_name: str = ""
     if FLUKSO:
-        columns_name = ['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot']
+        columns_name: List[str] = ['home_id', 'day', 'ts', 'p_cons', 'p_prod', 'p_tot']
     elif RTU:
-        columns_name = [
+        columns_name: List[str] = [
             'ip', 'day', 'ts', 'active', 'apparent', 'cos_phi', 'reactive',
             'tension1_2', 'tension2_3', 'tension3_1'
         ]

@@ -70,7 +70,9 @@ def find_reaction_report(
             mean_alert: float = alert_df['p_cons'].mean()
             mean_not_alert: float = not_alert['p_cons'].mean()
             # Combined mean
-            global_mean: float = (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+            global_mean: float = (
+                (sum_alert + sum_not_alert) / (len(alert_df.index) + len(not_alert.index))
+            )
             # Compute the percentages
             matrix[index][alert_idx] = (
                 ((mean_alert - mean_not_alert) / global_mean)
